@@ -219,6 +219,16 @@ namespace ACT_Plugin_Souma_Downloader
                     PluginUI.checkedListBox1.Items.Add(downloadLink);
                 }
 
+                // 默认选中必装
+                for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
+                {
+                    string itemName = PluginUI.checkedListBox1.Items[i].ToString();
+                    if (itemName.Contains("必装"))
+                    {
+                        PluginUI.checkedListBox1.SetItemChecked(i, true);
+                    }
+                }
+
                 // 重新选中之前选中的项
                 for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
                 {

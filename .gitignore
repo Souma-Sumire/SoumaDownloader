@@ -1,0 +1,14 @@
+# 忽略编译输出文件
+bin/
+obj/
+
+# 忽略 NuGet 依赖文件
+*.nuget
+
+# 忽略 Visual Studio 文件
+*.suo
+*.user
+*.vs/
+
+# 忽略生成的 DLL 文件
+*.dll

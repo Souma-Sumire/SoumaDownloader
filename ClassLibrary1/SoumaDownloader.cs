@@ -133,12 +133,10 @@ namespace ACT_Plugin_Souma_Downloader
                 }
             }
 
-            string path = Path.Combine(userDir, "raidboss", "Souma");
-
             try
             {
                 // 创建目录
-                Directory.CreateDirectory(path);
+                Directory.CreateDirectory(userDir);
             }
             catch (Exception ex)
             {
@@ -168,7 +166,7 @@ namespace ACT_Plugin_Souma_Downloader
                     Directory.CreateDirectory(backupPath);
 
                     // 备份原文件
-                    BackupFiles(path, backupPath);
+                    BackupFiles(userDir, backupPath);
 
                     // 获取选中的下载链接
                     var selectedItems = PluginUI.checkedListBox1.CheckedItems.Cast<string>().ToList();
@@ -176,12 +174,12 @@ namespace ACT_Plugin_Souma_Downloader
                     // 下载选中的文件
                     foreach (string downloadLink in selectedItems)
                     {
-                        bool downloadSuccess = await DownloadFileAsync(client, "https://souma.diemoe.net/raidboss/" + downloadLink, path);
+                        bool downloadSuccess = await DownloadFileAsync(client, "https://souma.diemoe.net/raidboss/" + downloadLink, userDir);
 
                         if (!downloadSuccess)
                         {
                             // 下载失败，恢复备份文件
-                            RestoreFiles(backupPath, path);
+                            RestoreFiles(backupPath, userDir);
                             MessageBox.Show("下载失败！已恢复原始文件。");
                             return;
                         }
@@ -197,7 +195,7 @@ namespace ACT_Plugin_Souma_Downloader
                 catch (Exception ex)
                 {
                     // 发生异常，恢复备份文件
-                    RestoreFiles(backupPath, path);
+                    RestoreFiles(backupPath, userDir);
                     MessageBox.Show("下载过程中发生错误：" + ex.Message);
                 }
                 finally

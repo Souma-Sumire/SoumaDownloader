@@ -51,6 +51,8 @@ namespace SoumaDownloader
             this.labelUserDirectory = new System.Windows.Forms.Label();
             this.label2 = new System.Windows.Forms.Label();
             this.btnFindDir = new System.Windows.Forms.Button();
+            this.lblLastUpdateTime = new System.Windows.Forms.Label();
+            this.textlLastUpdateTime = new System.Windows.Forms.TextBox();
             this.SuspendLayout();
             // 
             // txtUserDir
@@ -180,10 +182,29 @@ namespace SoumaDownloader
             this.btnFindDir.UseVisualStyleBackColor = true;
             this.btnFindDir.Click += new System.EventHandler(this.BtnFindDir_Click);
             // 
+            // lblLastUpdateTime
+            // 
+            this.lblLastUpdateTime.AutoSize = true;
+            this.lblLastUpdateTime.Location = new System.Drawing.Point(101, 94);
+            this.lblLastUpdateTime.Name = "lblLastUpdateTime";
+            this.lblLastUpdateTime.Size = new System.Drawing.Size(89, 12);
+            this.lblLastUpdateTime.TabIndex = 18;
+            this.lblLastUpdateTime.Text = "上次更新时间：";
+            // 
+            // textlLastUpdateTime
+            // 
+            this.textlLastUpdateTime.Location = new System.Drawing.Point(196, 90);
+            this.textlLastUpdateTime.Name = "textlLastUpdateTime";
+            this.textlLastUpdateTime.ReadOnly = true;
+            this.textlLastUpdateTime.Size = new System.Drawing.Size(158, 21);
+            this.textlLastUpdateTime.TabIndex = 19;
+            // 
             // UIControl
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this.textlLastUpdateTime);
+            this.Controls.Add(this.lblLastUpdateTime);
             this.Controls.Add(this.btnFindDir);
             this.Controls.Add(this.VersionInfo);
             this.Controls.Add(this.label2);
@@ -217,5 +238,7 @@ namespace SoumaDownloader
         public Label labelUserDirectory;
         public Label label2;
         public Button btnFindDir;
+        private Label lblLastUpdateTime;
+        public TextBox textlLastUpdateTime;
     }
 }

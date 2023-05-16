@@ -272,6 +272,10 @@ namespace ACT_Plugin_Souma_Downloader
                 }
 
                 PluginUI.btnDownload.Enabled = true;
+
+                // 保存成功更新时间
+                string updateTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                PluginUI.textlLastUpdateTime.Text = updateTime;
             }
             catch (Exception ex)
             {
@@ -339,6 +343,7 @@ namespace ACT_Plugin_Souma_Downloader
             // 添加您希望保存状态的任何控件。
             xmlSettings.AddControlSetting("userDir", PluginUI.txtUserDir);
             xmlSettings.AddControlSetting("checkedList", PluginUI.checkedListBox1);
+            xmlSettings.AddControlSetting("lastUpdateTime",PluginUI.textlLastUpdateTime);
             if (File.Exists(settingsFile))
             {
                 FileStream fs = new FileStream(settingsFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);

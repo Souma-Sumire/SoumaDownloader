@@ -60,13 +60,13 @@ namespace SoumaDownloader
             this.txtUserDir.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.txtUserDir.Location = new System.Drawing.Point(101, 28);
             this.txtUserDir.Name = "txtUserDir";
-            this.txtUserDir.Size = new System.Drawing.Size(553, 23);
+            this.txtUserDir.Size = new System.Drawing.Size(652, 23);
             this.txtUserDir.TabIndex = 0;
             // 
             // btnOpenDir
             // 
             this.btnOpenDir.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.btnOpenDir.Location = new System.Drawing.Point(660, 28);
+            this.btnOpenDir.Location = new System.Drawing.Point(759, 28);
             this.btnOpenDir.Name = "btnOpenDir";
             this.btnOpenDir.Size = new System.Drawing.Size(87, 23);
             this.btnOpenDir.TabIndex = 1;
@@ -93,7 +93,7 @@ namespace SoumaDownloader
             this.checkedListBox1.Location = new System.Drawing.Point(8, 118);
             this.checkedListBox1.Name = "checkedListBox1";
             this.checkedListBox1.ScrollAlwaysVisible = true;
-            this.checkedListBox1.Size = new System.Drawing.Size(646, 418);
+            this.checkedListBox1.Size = new System.Drawing.Size(745, 418);
             this.checkedListBox1.TabIndex = 3;
             this.checkedListBox1.ItemCheck += new System.Windows.Forms.ItemCheckEventHandler(this.CheckedListBox1_ItemCheck);
             // 
@@ -110,7 +110,7 @@ namespace SoumaDownloader
             // btnSelectAll
             // 
             this.btnSelectAll.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.btnSelectAll.Location = new System.Drawing.Point(660, 118);
+            this.btnSelectAll.Location = new System.Drawing.Point(759, 118);
             this.btnSelectAll.Name = "btnSelectAll";
             this.btnSelectAll.Size = new System.Drawing.Size(87, 23);
             this.btnSelectAll.TabIndex = 4;
@@ -121,7 +121,7 @@ namespace SoumaDownloader
             // btnDeselectAll
             // 
             this.btnDeselectAll.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.btnDeselectAll.Location = new System.Drawing.Point(660, 147);
+            this.btnDeselectAll.Location = new System.Drawing.Point(759, 147);
             this.btnDeselectAll.Name = "btnDeselectAll";
             this.btnDeselectAll.Size = new System.Drawing.Size(87, 23);
             this.btnDeselectAll.TabIndex = 5;
@@ -132,7 +132,7 @@ namespace SoumaDownloader
             // btnToggleSelection
             // 
             this.btnToggleSelection.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.btnToggleSelection.Location = new System.Drawing.Point(660, 176);
+            this.btnToggleSelection.Location = new System.Drawing.Point(759, 176);
             this.btnToggleSelection.Name = "btnToggleSelection";
             this.btnToggleSelection.Size = new System.Drawing.Size(87, 23);
             this.btnToggleSelection.TabIndex = 6;
@@ -144,7 +144,7 @@ namespace SoumaDownloader
             // 
             this.VersionInfo.AutoSize = true;
             this.VersionInfo.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.VersionInfo.Location = new System.Drawing.Point(577, 542);
+            this.VersionInfo.Location = new System.Drawing.Point(676, 539);
             this.VersionInfo.Name = "VersionInfo";
             this.VersionInfo.Size = new System.Drawing.Size(77, 17);
             this.VersionInfo.TabIndex = 15;

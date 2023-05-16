@@ -106,9 +106,9 @@ namespace ACT_Plugin_Souma_Downloader
                     return;
                 }
 
-                propertyValue = Path.Combine(foundPath, "user", "Souma");
+                propertyValue = Path.Combine(foundPath, "user", "raidboss", "Souma");
             }
-
+            propertyValue = Path.Combine(propertyValue, "raidboss", "Souma");
             PluginUI.txtUserDir.Text = propertyValue ?? "自动设置失败，已找到OverlayPlugin.config.json，但未找到CactbotUserDirectory属性值。";
         }
 
@@ -343,7 +343,7 @@ namespace ACT_Plugin_Souma_Downloader
             // 添加您希望保存状态的任何控件。
             xmlSettings.AddControlSetting("userDir", PluginUI.txtUserDir);
             xmlSettings.AddControlSetting("checkedList", PluginUI.checkedListBox1);
-            xmlSettings.AddControlSetting("lastUpdateTime",PluginUI.textlLastUpdateTime);
+            xmlSettings.AddControlSetting("lastUpdateTime", PluginUI.textlLastUpdateTime);
             if (File.Exists(settingsFile))
             {
                 FileStream fs = new FileStream(settingsFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);

@@ -81,18 +81,19 @@ namespace ACT_Plugin_Souma_Downloader
             string propertyValue = JObject.Parse(jsonContent)
                 .SelectToken("EventSourceConfigs.CactbotESConfig.OverlayData.options.general.CactbotUserDirectory")?.Value<string>();
 
-            if (string.IsNullOrEmpty(propertyValue))
+            if (!string.IsNullOrEmpty(propertyValue)) propertyValue = Path.Combine(propertyValue, "raidboss", "Souma");
+            else
             {
                 var cactbot = ActGlobals.oFormActMain.ActPlugins.FirstOrDefault(x => x.pluginObj?.GetType().ToString() == "RainbowMage.OverlayPlugin.PluginLoader");
                 string cactbotDirectory = Path.GetDirectoryName(cactbot.pluginFile.FullName);
+                string pluginsDirectory = Directory.GetParent(cactbotDirectory).FullName;
 
-                // 尝试默认路径和备用路径
-                string[] searchPaths = { "cactbot", "cactbot-offline" };
+                string[] searchPaths = { "cactbot-offline", "cactbot" };
                 string foundPath = null;
 
                 foreach (string searchPath in searchPaths)
                 {
-                    string fullPath = Path.Combine(cactbotDirectory, searchPath);
+                    string fullPath = Path.Combine(pluginsDirectory, searchPath, "user");
                     if (Directory.Exists(fullPath))
                     {
                         foundPath = fullPath;
@@ -105,11 +106,9 @@ namespace ACT_Plugin_Souma_Downloader
                     PluginUI.txtUserDir.Text = "自动设置失败，未找到user目录。";
                     return;
                 }
-
-                propertyValue = Path.Combine(foundPath, "user", "raidboss", "Souma");
+                propertyValue = Path.Combine(foundPath, "raidboss", "Souma");
             }
-            propertyValue = Path.Combine(propertyValue, "raidboss", "Souma");
-            PluginUI.txtUserDir.Text = propertyValue ?? "自动设置失败，已找到OverlayPlugin.config.json，但未找到CactbotUserDirectory属性值。";
+            PluginUI.txtUserDir.Text = propertyValue;
         }
 
         private async void DownloadSelected(object sender, EventArgs e)

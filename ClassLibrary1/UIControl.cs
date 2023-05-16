@@ -108,5 +108,9 @@ namespace SoumaDownloader
             }
         }
 
+        private void LinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
+        {
+            System.Diagnostics.Process.Start("https://github.com/Souma-Sumire/raidboss-user-js-public/");
+        }
     }
 }

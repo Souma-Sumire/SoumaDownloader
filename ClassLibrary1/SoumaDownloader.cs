@@ -146,6 +146,18 @@ namespace ACT_Plugin_Souma_Downloader
 
             // 禁用下载按钮
             PluginUI.btnDownload.Enabled = false;
+
+            string diemoePath = Path.Combine(Directory.GetParent(userDir).FullName, "呆萌整合");
+            MessageBox.Show(diemoePath);
+            if (Directory.Exists(diemoePath))
+            {
+                DialogResult diemoe = MessageBox.Show("检测到呆萌整合自带的JS文件，无法兼容，需要帮你删除呆萌整合自带的JS文件吗？", "冲突处理", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                if (diemoe == DialogResult.Yes)
+                {
+                    Directory.Delete(diemoePath, true);
+                }
+            }
+
             DialogResult result = MessageBox.Show("开始下载吗？", "下载确认", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
             // 用户点击了“是”
@@ -204,6 +216,7 @@ namespace ACT_Plugin_Souma_Downloader
                     PluginUI.btnDownload.Enabled = true;
                 }
             }
+            PluginUI.btnDownload.Enabled = true;
         }
 
         private void BackupFiles(string sourcePath, string backupPath)

@@ -209,6 +209,7 @@ namespace SoumaDownloader
             this.textBox1.Font = new System.Drawing.Font("微软雅黑", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.textBox1.Location = new System.Drawing.Point(173, 429);
             this.textBox1.Name = "textBox1";
+            this.textBox1.ReadOnly = true;
             this.textBox1.Size = new System.Drawing.Size(365, 23);
             this.textBox1.TabIndex = 20;
             this.textBox1.Text = "https://souma.diemoe.net/ff14-overlay-vite/#/cactbotRuntime";

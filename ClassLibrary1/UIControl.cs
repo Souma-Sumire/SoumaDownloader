@@ -17,70 +17,75 @@ namespace SoumaDownloader
         }
         private void BtnOpenDirectory_Click(object sender, EventArgs e)
         {
-            if (!Directory.Exists(ParentClass.PluginUI.txtUserDir.Text))
+            string userPath = ParentClass.PluginUI.txtUserDir.Text;
+
+            try
+            {
+                string parentParentDir = Path.GetDirectoryName(Path.GetDirectoryName(userPath));
+                if ((string.IsNullOrEmpty(userPath) || userPath.Contains("自动设置失败") || !Directory.Exists(parentParentDir) && !Directory.Exists(userPath)))
+                {
+                    throw new Exception("无效的用户目录！");
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+
+            if (!Directory.Exists(userPath))
             {
                 try
                 {
-                    Directory.CreateDirectory(ParentClass.PluginUI.txtUserDir.Text);
+                    Directory.CreateDirectory(userPath);
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("Failed to create cactbotUserDirectory: " + ex.Message);
+                    MessageBox.Show("无法创建 cactbot 用户目录：" + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     return;
                 }
             }
 
-            if (Directory.Exists(ParentClass.PluginUI.txtUserDir.Text))
+            if (Directory.Exists(userPath))
             {
                 try
                 {
-                    System.Diagnostics.Process.Start("explorer.exe", ParentClass.PluginUI.txtUserDir.Text);
+                    System.Diagnostics.Process.Start("explorer.exe", userPath);
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("Failed to open cactbotUserDirectory: " + ex.Message);
+                    MessageBox.Show("无法打开 cactbot 用户目录：" + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
             }
             else
             {
-                MessageBox.Show("cactbotUserDirectory does not exist.");
+                MessageBox.Show("cactbot 用户目录不存在。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
 
 
+
         private void SelectAllButton_Click(object sender, EventArgs e)
         {
-            for (int i = 0; i < checkedListBox1.Items.Count; i++)
+            foreach (var item in checkedListBox1.Items.Cast<string>().Where(item => !item.Contains("必装")).ToList())
             {
-                string itemName = checkedListBox1.Items[i].ToString();
-                if (!itemName.Contains("必装"))
-                {
-                    checkedListBox1.SetItemChecked(i, true);
-                }
+                checkedListBox1.SetItemChecked(checkedListBox1.Items.IndexOf(item), true);
             }
         }
 
         private void DeselectAllButton_Click(object sender, EventArgs e)
         {
-            for (int i = 0; i < checkedListBox1.Items.Count; i++)
+            foreach (var item in checkedListBox1.Items.Cast<string>().Where(item => !item.Contains("必装")).ToList())
             {
-                string itemName = checkedListBox1.Items[i].ToString();
-                if (!itemName.Contains("必装"))
-                {
-                    checkedListBox1.SetItemChecked(i, false);
-                }
+                checkedListBox1.SetItemChecked(checkedListBox1.Items.IndexOf(item), false);
             }
         }
 
         private void InvertSelectionButton_Click(object sender, EventArgs e)
         {
-            for (int i = 0; i < checkedListBox1.Items.Count; i++)
+            foreach (var item in checkedListBox1.Items.Cast<string>().Where(item => !item.Contains("必装")).ToList())
             {
-                string itemName = checkedListBox1.Items[i].ToString();
-                if (!itemName.Contains("必装"))
-                {
-                    checkedListBox1.SetItemChecked(i, !checkedListBox1.GetItemChecked(i));
-                }
+                checkedListBox1.SetItemChecked(checkedListBox1.Items.IndexOf(item), !checkedListBox1.GetItemChecked(checkedListBox1.Items.IndexOf(item)));
             }
         }
 
@@ -97,6 +102,11 @@ namespace SoumaDownloader
         {
             ParentClass.AutoConfigureCactbotPath();
 
+            if (string.IsNullOrEmpty(ParentClass.PluginUI.txtUserDir.Text) || ParentClass.PluginUI.txtUserDir.Text.Contains("自动设置失败"))
+            {
+                MessageBox.Show("无效的用户目录！", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
         }
+
     }
 }

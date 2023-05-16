@@ -59,46 +59,93 @@ namespace ACT_Plugin_Souma_Downloader
 
         public void AutoConfigureCactbotPath()
         {
-            string exeFullPath = Process.GetCurrentProcess().MainModule.FileName;
-            string directoryPath = Path.GetDirectoryName(exeFullPath);
-            string jsonFilePath = $@"{directoryPath}\Config\RainbowMage.OverlayPlugin.config.json";
+            string settingsPath = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config", "RainbowMage.OverlayPlugin.config.json");
 
-            string ReadFileContent(string filePath) => File.Exists(filePath) ? File.ReadAllText(filePath) : null;
-            string jsonContent = ReadFileContent(jsonFilePath);
-            if (jsonContent == null)
+            if (!File.Exists(settingsPath))
             {
-                jsonFilePath = jsonFilePath.Replace(@"\Config\RainbowMage.OverlayPlugin.config.json", @"\AppData\Advanced Combat Tracker\Config\RainbowMage.OverlayPlugin.config.json");
-                jsonContent = ReadFileContent(jsonFilePath);
-            }
-            if (jsonContent == null)
-            {
-                var cactbot = ActGlobals.oFormActMain.ActPlugins.FirstOrDefault(plugin => plugin.lblPluginTitle.Text == "CactbotOverlay.dll");
-                jsonFilePath = cactbot.pluginFile.FullName.Replace(@"\Plugins\cactbot\cactbot\CactbotOverlay.dll", @"\Config\RainbowMage.OverlayPlugin.config.json");
-                jsonContent = ReadFileContent(jsonFilePath);
-            }
-            if (jsonContent == null)
-            {
-                jsonFilePath = jsonFilePath.Replace(@"\Config\RainbowMage.OverlayPlugin.config.json", @"\AppData\Advanced Combat Tracker\Config\RainbowMage.OverlayPlugin.config.json");
-                jsonContent = ReadFileContent(jsonFilePath);
-            }
-            if (jsonContent == null)
                 PluginUI.txtUserDir.Text = "自动设置失败，未找到OverlayPlugin.config.json。";
-            JToken propertyValue = JObject.Parse(jsonContent).SelectToken("EventSourceConfigs.CactbotESConfig.OverlayData.options.general.CactbotUserDirectory");
-            // 检查属性值是否存在
-            PluginUI.txtUserDir.Text = propertyValue != null
-                ? propertyValue.ToString()
-                : "自动设置失败，已找到OverlayPlugin.config.json，但未找到CactbotUserDirectory属性值。";
+                return;
+            }
+
+            string jsonContent = null;
+            try
+            {
+                jsonContent = File.ReadAllText(settingsPath);
+            }
+            catch (Exception ex)
+            {
+                PluginUI.txtUserDir.Text = "自动设置失败，无法读取OverlayPlugin.config.json：" + ex.Message;
+                return;
+            }
+
+            string propertyValue = JObject.Parse(jsonContent)
+                .SelectToken("EventSourceConfigs.CactbotESConfig.OverlayData.options.general.CactbotUserDirectory")?.Value<string>();
+
+            if (string.IsNullOrEmpty(propertyValue))
+            {
+                var cactbot = ActGlobals.oFormActMain.ActPlugins.FirstOrDefault(x => x.pluginObj?.GetType().ToString() == "RainbowMage.OverlayPlugin.PluginLoader");
+                string cactbotDirectory = Path.GetDirectoryName(cactbot.pluginFile.FullName);
+
+                // 尝试默认路径和备用路径
+                string[] searchPaths = { "cactbot", "cactbot-offline" };
+                string foundPath = null;
+
+                foreach (string searchPath in searchPaths)
+                {
+                    string fullPath = Path.Combine(cactbotDirectory, searchPath);
+                    if (Directory.Exists(fullPath))
+                    {
+                        foundPath = fullPath;
+                        break;
+                    }
+                }
+
+                if (foundPath == null)
+                {
+                    PluginUI.txtUserDir.Text = "自动设置失败，未找到user目录。";
+                    return;
+                }
+
+                propertyValue = Path.Combine(foundPath, "user", "Souma");
+            }
+
+            PluginUI.txtUserDir.Text = propertyValue ?? "自动设置失败，已找到OverlayPlugin.config.json，但未找到CactbotUserDirectory属性值。";
         }
 
         private async void DownloadSelected(object sender, EventArgs e)
         {
-            if (PluginUI.txtUserDir.Text == "")
+            string userDir = PluginUI.txtUserDir.Text;
+
+            if (string.IsNullOrEmpty(userDir))
             {
                 MessageBox.Show("用户目录为空！");
                 return;
             }
 
-            string path = Path.Combine(PluginUI.txtUserDir.Text, "raidboss", "Souma");
+            if (!Directory.Exists(userDir))
+            {
+                AutoConfigureCactbotPath();
+
+                userDir = PluginUI.txtUserDir.Text;
+                if (!Directory.Exists(userDir))
+                {
+                    MessageBox.Show("路径不存在！");
+                    return;
+                }
+            }
+
+            string path = Path.Combine(userDir, "raidboss", "Souma");
+
+            try
+            {
+                // 创建目录
+                Directory.CreateDirectory(path);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Failed to create cactbotUserDirectory: " + ex.Message);
+                return;
+            }
 
             // 禁用下载按钮
             PluginUI.btnDownload.Enabled = false;
@@ -107,20 +154,6 @@ namespace ACT_Plugin_Souma_Downloader
             // 用户点击了“是”
             if (result == DialogResult.Yes)
             {
-                // 创建目录
-                if (!Directory.Exists(path))
-                {
-                    try
-                    {
-                        Directory.CreateDirectory(path);
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show("Failed to create cactbotUserDirectory: " + ex.Message);
-                        return;
-                    }
-                }
-
                 // 备份原文件的目录
                 string backupPath = Path.Combine(Path.GetTempPath(), "cactbot_backup");
 

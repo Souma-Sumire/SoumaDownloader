@@ -39,6 +39,7 @@ namespace SoumaDownloader
         /// </summary>
         private void InitializeComponent()
         {
+            this.components = new System.ComponentModel.Container();
             this.txtUserDir = new System.Windows.Forms.TextBox();
             this.btnOpenDir = new System.Windows.Forms.Button();
             this.btnFetch = new System.Windows.Forms.Button();
@@ -56,22 +57,26 @@ namespace SoumaDownloader
             this.textBox1 = new System.Windows.Forms.TextBox();
             this.label1 = new System.Windows.Forms.Label();
             this.linkLabel1 = new System.Windows.Forms.LinkLabel();
+            this.checkBoxOverwrite = new System.Windows.Forms.CheckBox();
+            this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
             this.SuspendLayout();
             // 
             // txtUserDir
             // 
             this.txtUserDir.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.txtUserDir.Location = new System.Drawing.Point(96, 24);
+            this.txtUserDir.Location = new System.Drawing.Point(192, 48);
+            this.txtUserDir.Margin = new System.Windows.Forms.Padding(6);
             this.txtUserDir.Name = "txtUserDir";
-            this.txtUserDir.Size = new System.Drawing.Size(442, 21);
+            this.txtUserDir.Size = new System.Drawing.Size(880, 35);
             this.txtUserDir.TabIndex = 0;
             // 
             // btnOpenDir
             // 
             this.btnOpenDir.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.btnOpenDir.Location = new System.Drawing.Point(544, 24);
+            this.btnOpenDir.Location = new System.Drawing.Point(1088, 48);
+            this.btnOpenDir.Margin = new System.Windows.Forms.Padding(6);
             this.btnOpenDir.Name = "btnOpenDir";
-            this.btnOpenDir.Size = new System.Drawing.Size(87, 23);
+            this.btnOpenDir.Size = new System.Drawing.Size(174, 46);
             this.btnOpenDir.TabIndex = 1;
             this.btnOpenDir.Text = "打开目录";
             this.btnOpenDir.UseVisualStyleBackColor = true;
@@ -80,11 +85,12 @@ namespace SoumaDownloader
             // btnFetch
             // 
             this.btnFetch.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.btnFetch.Location = new System.Drawing.Point(3, 74);
+            this.btnFetch.Location = new System.Drawing.Point(6, 148);
+            this.btnFetch.Margin = new System.Windows.Forms.Padding(6);
             this.btnFetch.Name = "btnFetch";
-            this.btnFetch.Size = new System.Drawing.Size(87, 23);
+            this.btnFetch.Size = new System.Drawing.Size(174, 46);
             this.btnFetch.TabIndex = 2;
-            this.btnFetch.Text = "更新列表";
+            this.btnFetch.Text = "刷新列表";
             this.btnFetch.UseVisualStyleBackColor = true;
             // 
             // checkedListBox1
@@ -93,29 +99,32 @@ namespace SoumaDownloader
             this.checkedListBox1.CheckOnClick = true;
             this.checkedListBox1.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
             this.checkedListBox1.FormattingEnabled = true;
-            this.checkedListBox1.Location = new System.Drawing.Point(3, 101);
+            this.checkedListBox1.Location = new System.Drawing.Point(6, 202);
+            this.checkedListBox1.Margin = new System.Windows.Forms.Padding(6);
             this.checkedListBox1.Name = "checkedListBox1";
             this.checkedListBox1.ScrollAlwaysVisible = true;
-            this.checkedListBox1.Size = new System.Drawing.Size(531, 292);
+            this.checkedListBox1.Size = new System.Drawing.Size(1058, 580);
             this.checkedListBox1.TabIndex = 3;
             this.checkedListBox1.ItemCheck += new System.Windows.Forms.ItemCheckEventHandler(this.CheckedListBox1_ItemCheck);
             // 
             // btnDownload
             // 
             this.btnDownload.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.btnDownload.Location = new System.Drawing.Point(3, 399);
+            this.btnDownload.Location = new System.Drawing.Point(6, 798);
+            this.btnDownload.Margin = new System.Windows.Forms.Padding(6);
             this.btnDownload.Name = "btnDownload";
-            this.btnDownload.Size = new System.Drawing.Size(87, 30);
+            this.btnDownload.Size = new System.Drawing.Size(174, 60);
             this.btnDownload.TabIndex = 7;
-            this.btnDownload.Text = "下载选中项";
+            this.btnDownload.Text = "更新文件";
             this.btnDownload.UseVisualStyleBackColor = true;
             // 
             // btnSelectAll
             // 
             this.btnSelectAll.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.btnSelectAll.Location = new System.Drawing.Point(540, 101);
+            this.btnSelectAll.Location = new System.Drawing.Point(1080, 202);
+            this.btnSelectAll.Margin = new System.Windows.Forms.Padding(6);
             this.btnSelectAll.Name = "btnSelectAll";
-            this.btnSelectAll.Size = new System.Drawing.Size(87, 23);
+            this.btnSelectAll.Size = new System.Drawing.Size(174, 46);
             this.btnSelectAll.TabIndex = 4;
             this.btnSelectAll.Text = "全选";
             this.btnSelectAll.UseVisualStyleBackColor = true;
@@ -124,9 +133,10 @@ namespace SoumaDownloader
             // btnDeselectAll
             // 
             this.btnDeselectAll.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.btnDeselectAll.Location = new System.Drawing.Point(540, 130);
+            this.btnDeselectAll.Location = new System.Drawing.Point(1080, 260);
+            this.btnDeselectAll.Margin = new System.Windows.Forms.Padding(6);
             this.btnDeselectAll.Name = "btnDeselectAll";
-            this.btnDeselectAll.Size = new System.Drawing.Size(87, 23);
+            this.btnDeselectAll.Size = new System.Drawing.Size(174, 46);
             this.btnDeselectAll.TabIndex = 5;
             this.btnDeselectAll.Text = "全部取消";
             this.btnDeselectAll.UseVisualStyleBackColor = true;
@@ -135,9 +145,10 @@ namespace SoumaDownloader
             // btnToggleSelection
             // 
             this.btnToggleSelection.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.btnToggleSelection.Location = new System.Drawing.Point(540, 159);
+            this.btnToggleSelection.Location = new System.Drawing.Point(1080, 318);
+            this.btnToggleSelection.Margin = new System.Windows.Forms.Padding(6);
             this.btnToggleSelection.Name = "btnToggleSelection";
-            this.btnToggleSelection.Size = new System.Drawing.Size(87, 23);
+            this.btnToggleSelection.Size = new System.Drawing.Size(174, 46);
             this.btnToggleSelection.TabIndex = 6;
             this.btnToggleSelection.Text = "反选";
             this.btnToggleSelection.UseVisualStyleBackColor = true;
@@ -147,9 +158,10 @@ namespace SoumaDownloader
             // 
             this.VersionInfo.AutoSize = true;
             this.VersionInfo.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.VersionInfo.Location = new System.Drawing.Point(457, 414);
+            this.VersionInfo.Location = new System.Drawing.Point(914, 828);
+            this.VersionInfo.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.VersionInfo.Name = "VersionInfo";
-            this.VersionInfo.Size = new System.Drawing.Size(77, 12);
+            this.VersionInfo.Size = new System.Drawing.Size(154, 24);
             this.VersionInfo.TabIndex = 15;
             this.VersionInfo.Text = "版本 0.0.0.0";
             this.VersionInfo.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -158,9 +170,10 @@ namespace SoumaDownloader
             // 
             this.labelUserDirectory.AutoSize = true;
             this.labelUserDirectory.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.labelUserDirectory.Location = new System.Drawing.Point(0, 4);
+            this.labelUserDirectory.Location = new System.Drawing.Point(0, 8);
+            this.labelUserDirectory.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.labelUserDirectory.Name = "labelUserDirectory";
-            this.labelUserDirectory.Size = new System.Drawing.Size(287, 12);
+            this.labelUserDirectory.Size = new System.Drawing.Size(574, 24);
             this.labelUserDirectory.TabIndex = 9;
             this.labelUserDirectory.Text = "填写下载目录（...\\cactbot\\user\\raidboss\\Souma）";
             // 
@@ -168,18 +181,20 @@ namespace SoumaDownloader
             // 
             this.label2.AutoSize = true;
             this.label2.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.label2.Location = new System.Drawing.Point(0, 54);
+            this.label2.Location = new System.Drawing.Point(0, 108);
+            this.label2.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.label2.Name = "label2";
-            this.label2.Size = new System.Drawing.Size(89, 12);
+            this.label2.Size = new System.Drawing.Size(178, 24);
             this.label2.TabIndex = 11;
             this.label2.Text = "选择需要的文件";
             // 
             // btnFindDir
             // 
             this.btnFindDir.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.btnFindDir.Location = new System.Drawing.Point(3, 24);
+            this.btnFindDir.Location = new System.Drawing.Point(6, 48);
+            this.btnFindDir.Margin = new System.Windows.Forms.Padding(6);
             this.btnFindDir.Name = "btnFindDir";
-            this.btnFindDir.Size = new System.Drawing.Size(87, 23);
+            this.btnFindDir.Size = new System.Drawing.Size(174, 46);
             this.btnFindDir.TabIndex = 17;
             this.btnFindDir.Text = "自动识别";
             this.btnFindDir.UseVisualStyleBackColor = true;
@@ -189,28 +204,31 @@ namespace SoumaDownloader
             // 
             this.lblLastUpdateTime.AutoSize = true;
             this.lblLastUpdateTime.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.lblLastUpdateTime.Location = new System.Drawing.Point(334, 77);
+            this.lblLastUpdateTime.Location = new System.Drawing.Point(668, 154);
+            this.lblLastUpdateTime.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.lblLastUpdateTime.Name = "lblLastUpdateTime";
-            this.lblLastUpdateTime.Size = new System.Drawing.Size(65, 12);
+            this.lblLastUpdateTime.Size = new System.Drawing.Size(130, 24);
             this.lblLastUpdateTime.TabIndex = 18;
             this.lblLastUpdateTime.Text = "上次更新：";
             // 
             // textlLastUpdateTime
             // 
             this.textlLastUpdateTime.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.textlLastUpdateTime.Location = new System.Drawing.Point(398, 74);
+            this.textlLastUpdateTime.Location = new System.Drawing.Point(796, 148);
+            this.textlLastUpdateTime.Margin = new System.Windows.Forms.Padding(6);
             this.textlLastUpdateTime.Name = "textlLastUpdateTime";
             this.textlLastUpdateTime.ReadOnly = true;
-            this.textlLastUpdateTime.Size = new System.Drawing.Size(136, 21);
+            this.textlLastUpdateTime.Size = new System.Drawing.Size(268, 35);
             this.textlLastUpdateTime.TabIndex = 19;
             // 
             // textBox1
             // 
             this.textBox1.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.textBox1.Location = new System.Drawing.Point(173, 429);
+            this.textBox1.Location = new System.Drawing.Point(346, 858);
+            this.textBox1.Margin = new System.Windows.Forms.Padding(6);
             this.textBox1.Name = "textBox1";
             this.textBox1.ReadOnly = true;
-            this.textBox1.Size = new System.Drawing.Size(361, 21);
+            this.textBox1.Size = new System.Drawing.Size(718, 35);
             this.textBox1.TabIndex = 20;
             this.textBox1.Text = "https://souma.diemoe.net/ff14-overlay-vite/#/cactbotRuntime";
             // 
@@ -218,9 +236,10 @@ namespace SoumaDownloader
             // 
             this.label1.AutoSize = true;
             this.label1.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.label1.Location = new System.Drawing.Point(3, 432);
+            this.label1.Location = new System.Drawing.Point(6, 864);
+            this.label1.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.label1.Name = "label1";
-            this.label1.Size = new System.Drawing.Size(161, 12);
+            this.label1.Size = new System.Drawing.Size(322, 24);
             this.label1.TabIndex = 21;
             this.label1.Text = "并在悬浮窗插件中添加此链接";
             // 
@@ -229,19 +248,34 @@ namespace SoumaDownloader
             this.linkLabel1.AutoSize = true;
             this.linkLabel1.Cursor = System.Windows.Forms.Cursors.Hand;
             this.linkLabel1.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.linkLabel1.Location = new System.Drawing.Point(410, 414);
+            this.linkLabel1.Location = new System.Drawing.Point(820, 828);
+            this.linkLabel1.Margin = new System.Windows.Forms.Padding(6, 0, 6, 0);
             this.linkLabel1.Name = "linkLabel1";
-            this.linkLabel1.Size = new System.Drawing.Size(41, 12);
+            this.linkLabel1.Size = new System.Drawing.Size(82, 24);
             this.linkLabel1.TabIndex = 22;
             this.linkLabel1.TabStop = true;
             this.linkLabel1.Text = "Github";
             this.linkLabel1.VisitedLinkColor = System.Drawing.Color.Blue;
             this.linkLabel1.LinkClicked += new System.Windows.Forms.LinkLabelLinkClickedEventHandler(this.LinkLabel1_LinkClicked);
             // 
+            // checkBoxOverwrite
+            // 
+            this.checkBoxOverwrite.AutoSize = true;
+            this.checkBoxOverwrite.Checked = true;
+            this.checkBoxOverwrite.CheckState = System.Windows.Forms.CheckState.Checked;
+            this.checkBoxOverwrite.Location = new System.Drawing.Point(192, 815);
+            this.checkBoxOverwrite.Name = "checkBoxOverwrite";
+            this.checkBoxOverwrite.Size = new System.Drawing.Size(138, 28);
+            this.checkBoxOverwrite.TabIndex = 23;
+            this.checkBoxOverwrite.Text = "覆盖更新";
+            this.toolTip1.SetToolTip(this.checkBoxOverwrite, "更新时是否强制覆盖原有文件，取消勾选将会跳过已有文件");
+            this.checkBoxOverwrite.UseVisualStyleBackColor = true;
+            // 
             // UIControl
             // 
-            this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
+            this.AutoScaleDimensions = new System.Drawing.SizeF(12F, 24F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
+            this.Controls.Add(this.checkBoxOverwrite);
             this.Controls.Add(this.linkLabel1);
             this.Controls.Add(this.label1);
             this.Controls.Add(this.textBox1);
@@ -259,8 +293,9 @@ namespace SoumaDownloader
             this.Controls.Add(this.btnToggleSelection);
             this.Controls.Add(this.btnDeselectAll);
             this.Controls.Add(this.btnSelectAll);
+            this.Margin = new System.Windows.Forms.Padding(6);
             this.Name = "UIControl";
-            this.Size = new System.Drawing.Size(1176, 771);
+            this.Size = new System.Drawing.Size(2352, 1542);
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -285,5 +320,7 @@ namespace SoumaDownloader
         private TextBox textBox1;
         private Label label1;
         private LinkLabel linkLabel1;
+        public CheckBox checkBoxOverwrite;
+        private ToolTip toolTip1;
     }
 }

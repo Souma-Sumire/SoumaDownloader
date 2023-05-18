@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml;
@@ -43,11 +44,14 @@ namespace ACT_Plugin_Souma_Downloader
 
             xmlSettings = new SettingsSerializer(this); // 创建一个新的设置序列化器并将其传递给该实例。
             LoadSettings();
-            if (PluginUI.txtUserDir.Text.Length == 0) AutoConfigureCactbotPath();
-            PluginUI.txtUserDir.Text = PluginUI.txtUserDir.Text.Replace("\\\\", "\\"); // 呆萌启动器会修改XML导致出现双斜线 所以这里再替换回去
+            if (PluginUI.txtUserDir.Text=="")
+                AutoConfigureCactbotPath();
+            PluginUI.txtUserDir.Text = Path.GetFullPath(PluginUI.txtUserDir.Text);
             PluginUI.VersionInfo.Text = $"版本 {Assembly.GetExecutingAssembly().GetName().Version}";
+            
             PluginUI.btnDownload.Click += DownloadSelected;
             PluginUI.btnFetch.Click += BtnFetch_Click;
+            _ = FetchList();
         }
 
         public void DeInitPlugin()
@@ -82,7 +86,8 @@ namespace ACT_Plugin_Souma_Downloader
             string propertyValue = JObject.Parse(jsonContent)
                 .SelectToken("EventSourceConfigs.CactbotESConfig.OverlayData.options.general.CactbotUserDirectory")?.Value<string>();
 
-            if (!string.IsNullOrEmpty(propertyValue)) propertyValue = Path.Combine(propertyValue, "raidboss", "Souma");
+            if (!string.IsNullOrEmpty(propertyValue))
+                PluginUI.txtUserDir.Text = Path.Combine(propertyValue, "raidboss", "Souma");
             else
             {
                 var cactbot = ActGlobals.oFormActMain.ActPlugins.FirstOrDefault(x => x.pluginObj?.GetType().ToString() == "RainbowMage.OverlayPlugin.PluginLoader");
@@ -90,26 +95,17 @@ namespace ACT_Plugin_Souma_Downloader
                 string pluginsDirectory = Directory.GetParent(cactbotDirectory).FullName;
 
                 string[] searchPaths = { "cactbot-offline", "cactbot" };
-                string foundPath = null;
-
-                foreach (string searchPath in searchPaths)
-                {
-                    string fullPath = Path.Combine(pluginsDirectory, searchPath, "user");
-                    if (Directory.Exists(fullPath))
-                    {
-                        foundPath = fullPath;
-                        break;
-                    }
-                }
+                string foundPath = searchPaths
+                    .Select(searchPath => Path.Combine(pluginsDirectory, searchPath, "user"))
+                    .FirstOrDefault(fullPath => Directory.Exists(fullPath));
 
                 if (foundPath == null)
                 {
                     PluginUI.txtUserDir.Text = "自动设置失败，未找到user目录。";
                     return;
                 }
-                propertyValue = Path.Combine(foundPath, "raidboss", "Souma");
+                PluginUI.txtUserDir.Text = Path.Combine(foundPath, "raidboss", "Souma");
             }
-            PluginUI.txtUserDir.Text = propertyValue;
         }
 
         private async void DownloadSelected(object sender, EventArgs e)
@@ -162,26 +158,43 @@ namespace ACT_Plugin_Souma_Downloader
                     // 备份原文件
                     BackupFiles(userDir, backupPath);
 
-                    // 获取选中的下载链接
-                    var selectedItems = PluginUI.checkedListBox1.CheckedItems.Cast<string>().ToList();
-
-                    // 下载选中的文件
-                    foreach (string downloadLink in selectedItems)
+                    for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
                     {
-                        bool downloadSuccess = await DownloadFileAsync(client, "https://souma.diemoe.net/raidboss/" + downloadLink, userDir);
+                        string filename = PluginUI.checkedListBox1.Items[i].ToString();
+                        bool isChecked = PluginUI.checkedListBox1.GetItemChecked(i);
 
-                        if (!downloadSuccess)
+                        string filePath = Path.Combine(userDir, filename);
+
+                        if (isChecked)
                         {
-                            // 下载失败，恢复备份文件
-                            RestoreFiles(backupPath, userDir);
-                            MessageBox.Show("下载失败！已恢复原始文件。");
-                            return;
+                            // 如果项目被勾选，则下载文件
+                            if (File.Exists(filePath) && !PluginUI.checkBoxOverwrite.Checked) //如果不勾选强制覆盖，并且文件已经存在，则跳过
+                                continue;
+                            
+
+                            if (!await DownloadFileAsync(client, $"https://souma.diemoe.net/raidboss/{filename}", userDir))
+                            {
+                                // 下载失败，恢复备份文件
+                                RestoreFiles(backupPath, userDir);
+                                MessageBox.Show("下载失败！已恢复原始文件。");
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            // 如果项目未被勾选，且文件存在，则删除文件
+                            if (File.Exists(filePath)) 
+                                File.Delete(filePath);
                         }
                     }
 
                     // 下载完成后，删除备份目录
                     Directory.Delete(backupPath, true);
 
+                    // 保存成功更新时间
+                    string updateTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+                    PluginUI.textlLastUpdateTime.Text = updateTime;
                     MessageBox.Show("下载完成！记得刷新Raidboss悬浮窗以加载。");
 
                     SaveSettings();
@@ -221,7 +234,9 @@ namespace ACT_Plugin_Souma_Downloader
             }
         }
 
-        private async void BtnFetch_Click(object sender, EventArgs e)
+        private async void BtnFetch_Click(object sender, EventArgs e) => await FetchList();
+
+        private async Task FetchList()
         {
             try
             {
@@ -230,73 +245,29 @@ namespace ACT_Plugin_Souma_Downloader
                 response.EnsureSuccessStatusCode();
                 string phpContent = await response.Content.ReadAsStringAsync();
 
-                // 保存选中的项目名称
-                List<string> selectedItems = new List<string>();
-                foreach (var selectedItem in PluginUI.checkedListBox1.CheckedItems)
-                {
-                    selectedItems.Add(selectedItem.ToString());
-                }
 
                 PluginUI.checkedListBox1.Items.Clear();
 
-                foreach (string downloadLink in ExtractDownloadLinks(phpContent))
-                {
-                    PluginUI.checkedListBox1.Items.Add(downloadLink);
-                }
+                foreach (string filename in ExtractFileNames(phpContent))
+                    PluginUI.checkedListBox1.Items.Add(filename,
+                        filename.Contains("必装")// 默认选中必装
+                        || File.Exists(Path.Combine(PluginUI.txtUserDir.Text, filename)));//选中已有文件
 
-                // 默认选中必装
-                for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
-                {
-                    string itemName = PluginUI.checkedListBox1.Items[i].ToString();
-                    if (itemName.Contains("必装"))
-                    {
-                        PluginUI.checkedListBox1.SetItemChecked(i, true);
-                    }
-                }
-
-                // 重新选中之前选中的项
-                for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
-                {
-                    if (selectedItems.Contains(PluginUI.checkedListBox1.Items[i].ToString()))
-                    {
-                        PluginUI.checkedListBox1.SetItemChecked(i, true);
-                    }
-                }
 
                 PluginUI.btnDownload.Enabled = true;
-
-                // 保存成功更新时间
-                string updateTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                PluginUI.textlLastUpdateTime.Text = updateTime;
             }
             catch (Exception ex)
             {
                 MessageBox.Show("发生错误： " + ex.Message);
             }
         }
-
-        static string[] ExtractDownloadLinks(string phpContent)
+        static string[] ExtractFileNames(string content)
         {
-            const string linkStartTag = "<a href=\"";
-            const string linkEndTag = "\">";
-            const string linkPrefix = "https://souma.diemoe.net/raidboss/";
+            MatchCollection matches = Regex.Matches(content, "<a href=\"https://souma.diemoe.net/raidboss/(.*?)\"");
 
-            int startIndex = 0;
-            int endIndex = 0;
-            var downloadLinksList = new List<string>();
-            while (true)
-            {
-                startIndex = phpContent.IndexOf(linkStartTag, endIndex);
-                if (startIndex == -1)
-                    break;
-
-                startIndex += linkStartTag.Length;
-                endIndex = phpContent.IndexOf(linkEndTag, startIndex);
-                string linkSubstring = phpContent.Substring(startIndex, endIndex - startIndex);
-                linkSubstring = linkSubstring.Replace(linkPrefix, ""); // 移除链接中的前缀部分
-                downloadLinksList.Add(linkSubstring);
-            }
-            return downloadLinksList.ToArray();
+            return (from Match match in matches 
+                select Uri.UnescapeDataString(match.Groups[1].Value))
+                .ToArray();
         }
 
         static async Task<bool> DownloadFileAsync(HttpClient client, string downloadLink, string filePath)
@@ -308,7 +279,7 @@ namespace ACT_Plugin_Souma_Downloader
             try
             {
                 // 发送GET请求下载文件
-                HttpResponseMessage response = await client.GetAsync(downloadLink);
+                HttpResponseMessage response = await client.GetAsync(Uri.EscapeUriString(downloadLink));
                 response.EnsureSuccessStatusCode();
 
                 // 将下载的文件保存到指定路径
@@ -334,7 +305,7 @@ namespace ACT_Plugin_Souma_Downloader
         {
             // 添加您希望保存状态的任何控件。
             xmlSettings.AddControlSetting("userDir", PluginUI.txtUserDir);
-            xmlSettings.AddControlSetting("checkedList", PluginUI.checkedListBox1);
+            //xmlSettings.AddControlSetting("checkedList", PluginUI.checkedListBox1);
             xmlSettings.AddControlSetting("lastUpdateTime", PluginUI.textlLastUpdateTime);
             if (File.Exists(settingsFile))
             {

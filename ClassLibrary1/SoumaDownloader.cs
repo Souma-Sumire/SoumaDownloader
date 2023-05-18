@@ -209,6 +209,10 @@ namespace ACT_Plugin_Souma_Downloader
                     // 下载完成后，删除备份目录
                     Directory.Delete(backupPath, true);
 
+                    // 保存成功更新时间
+                    string updateTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+                    PluginUI.textlLastUpdateTime.Text = updateTime;
                     MessageBox.Show("下载完成！记得刷新Raidboss悬浮窗以加载。");
 
                     SaveSettings();
@@ -248,10 +252,7 @@ namespace ACT_Plugin_Souma_Downloader
             }
         }
 
-        private async void BtnFetch_Click(object sender, EventArgs e)
-        {
-            await FetchList();
-        }
+        private async void BtnFetch_Click(object sender, EventArgs e) => await FetchList();
 
         private async Task FetchList()
         {
@@ -272,10 +273,6 @@ namespace ACT_Plugin_Souma_Downloader
 
 
                 PluginUI.btnDownload.Enabled = true;
-
-                // 保存成功更新时间
-                string updateTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                PluginUI.textlLastUpdateTime.Text = updateTime;
             }
             catch (Exception ex)
             {

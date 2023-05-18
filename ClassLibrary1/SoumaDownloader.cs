@@ -44,11 +44,15 @@ namespace ACT_Plugin_Souma_Downloader
 
             xmlSettings = new SettingsSerializer(this); // 创建一个新的设置序列化器并将其传递给该实例。
             LoadSettings();
-            if (PluginUI.txtUserDir.Text.Length == 0) AutoConfigureCactbotPath();
-            PluginUI.txtUserDir.Text = PluginUI.txtUserDir.Text.Replace("\\\\", "\\"); // xml保存时会出现双斜线 不知道怎么正确解决 暂时无脑替换双斜线B
+            
+            if (PluginUI.txtUserDir.Text.Length == 0) 
+                AutoConfigureCactbotPath();
+            PluginUI.txtUserDir.Text = Path.GetFullPath(PluginUI.txtUserDir.Text);
             PluginUI.VersionInfo.Text = $"版本 {Assembly.GetExecutingAssembly().GetName().Version}";
+            
             PluginUI.btnDownload.Click += DownloadSelected;
             PluginUI.btnFetch.Click += BtnFetch_Click;
+            _ = FetchList();
         }
 
         public void DeInitPlugin()
@@ -173,20 +177,33 @@ namespace ACT_Plugin_Souma_Downloader
                     // 备份原文件
                     BackupFiles(userDir, backupPath);
 
-                    // 获取选中的下载链接
-                    var selectedItems = PluginUI.checkedListBox1.CheckedItems.Cast<string>().ToList();
-
-                    // 下载选中的文件
-                    foreach (string downloadLink in selectedItems)
+                    for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
                     {
-                        bool downloadSuccess = await DownloadFileAsync(client, "https://souma.diemoe.net/raidboss/" + downloadLink, userDir);
+                        string filename = PluginUI.checkedListBox1.Items[i].ToString();
+                        bool isChecked = PluginUI.checkedListBox1.GetItemChecked(i);
 
-                        if (!downloadSuccess)
+                        string filePath = Path.Combine(userDir, filename);
+
+                        if (isChecked)
                         {
-                            // 下载失败，恢复备份文件
-                            RestoreFiles(backupPath, userDir);
-                            MessageBox.Show("下载失败！已恢复原始文件。");
-                            return;
+                            // 如果项目被勾选，则下载文件
+                            if (File.Exists(filePath) && !PluginUI.checkBoxOverwrite.Checked) //如果不勾选强制覆盖，并且文件已经存在，则跳过
+                                continue;
+                            
+
+                            if (!await DownloadFileAsync(client, $"https://souma.diemoe.net/raidboss/{filename}", userDir))
+                            {
+                                // 下载失败，恢复备份文件
+                                RestoreFiles(backupPath, userDir);
+                                MessageBox.Show("下载失败！已恢复原始文件。");
+                                return;
+                            }
+                        }
+                        else
+                        {
+                            // 如果项目未被勾选，且文件存在，则删除文件
+                            if (File.Exists(filePath)) 
+                                File.Delete(filePath);
                         }
                     }
 
@@ -234,6 +251,11 @@ namespace ACT_Plugin_Souma_Downloader
 
         private async void BtnFetch_Click(object sender, EventArgs e)
         {
+            await FetchList();
+        }
+
+        private async Task FetchList()
+        {
             try
             {
                 string phpUrl = "https://souma.diemoe.net/list_files.php";
@@ -241,34 +263,14 @@ namespace ACT_Plugin_Souma_Downloader
                 response.EnsureSuccessStatusCode();
                 string phpContent = await response.Content.ReadAsStringAsync();
 
-                // 保存选中的项目名称
-                List<string> selectedItems = new List<string>();
-                foreach (var selectedItem in PluginUI.checkedListBox1.CheckedItems)
-                {
-                    selectedItems.Add(selectedItem.ToString());
-                }
 
                 PluginUI.checkedListBox1.Items.Clear();
 
-                PluginUI.checkedListBox1.Items.AddRange(ExtractFileNames(phpContent));
-                // 默认选中必装
-                for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
-                {
-                    string itemName = PluginUI.checkedListBox1.Items[i].ToString();
-                    if (itemName.Contains("必装"))
-                    {
-                        PluginUI.checkedListBox1.SetItemChecked(i, true);
-                    }
-                }
+                foreach (string filename in ExtractFileNames(phpContent))
+                    PluginUI.checkedListBox1.Items.Add(filename,
+                        filename.Contains("必装")// 默认选中必装
+                        || File.Exists(Path.Combine(PluginUI.txtUserDir.Text, filename)));//选中已有文件
 
-                // 重新选中之前选中的项
-                for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
-                {
-                    if (selectedItems.Contains(PluginUI.checkedListBox1.Items[i].ToString()))
-                    {
-                        PluginUI.checkedListBox1.SetItemChecked(i, true);
-                    }
-                }
 
                 PluginUI.btnDownload.Enabled = true;
 
@@ -281,7 +283,6 @@ namespace ACT_Plugin_Souma_Downloader
                 MessageBox.Show("发生错误： " + ex.Message);
             }
         }
-
         static string[] ExtractFileNames(string content)
         {
             MatchCollection matches = Regex.Matches(content, "<a href=\"https://souma.diemoe.net/raidboss/(.*?)\"");
@@ -300,7 +301,7 @@ namespace ACT_Plugin_Souma_Downloader
             try
             {
                 // 发送GET请求下载文件
-                HttpResponseMessage response = await client.GetAsync(downloadLink);
+                HttpResponseMessage response = await client.GetAsync(Uri.EscapeUriString(downloadLink));
                 response.EnsureSuccessStatusCode();
 
                 // 将下载的文件保存到指定路径
@@ -326,7 +327,7 @@ namespace ACT_Plugin_Souma_Downloader
         {
             // 添加您希望保存状态的任何控件。
             xmlSettings.AddControlSetting("userDir", PluginUI.txtUserDir);
-            xmlSettings.AddControlSetting("checkedList", PluginUI.checkedListBox1);
+            //xmlSettings.AddControlSetting("checkedList", PluginUI.checkedListBox1);
             xmlSettings.AddControlSetting("lastUpdateTime", PluginUI.textlLastUpdateTime);
             if (File.Exists(settingsFile))
             {

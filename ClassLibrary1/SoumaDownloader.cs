@@ -114,26 +114,8 @@ namespace ACT_Plugin_Souma_Downloader
 
         private async void DownloadSelected(object sender, EventArgs e)
         {
+            if (string.IsNullOrEmpty(PluginUI.txtUserDir.Text)) AutoConfigureCactbotPath();
             string userDir = PluginUI.txtUserDir.Text;
-
-            if (string.IsNullOrEmpty(userDir))
-            {
-                MessageBox.Show("用户目录为空！");
-                return;
-            }
-
-            if (!Directory.Exists(userDir))
-            {
-                AutoConfigureCactbotPath();
-
-                userDir = PluginUI.txtUserDir.Text;
-                if (!Directory.Exists(userDir))
-                {
-                    MessageBox.Show("路径不存在！");
-                    return;
-                }
-            }
-
             try
             {
                 // 创建目录

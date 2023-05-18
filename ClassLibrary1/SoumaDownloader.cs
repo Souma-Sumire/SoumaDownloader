@@ -44,7 +44,7 @@ namespace ACT_Plugin_Souma_Downloader
 
             xmlSettings = new SettingsSerializer(this); // 创建一个新的设置序列化器并将其传递给该实例。
             LoadSettings();
-            if (PluginUI.txtUserDir.Text.Length == 0) 
+            if (PluginUI.txtUserDir.Text=="")
                 AutoConfigureCactbotPath();
             PluginUI.txtUserDir.Text = Path.GetFullPath(PluginUI.txtUserDir.Text);
             PluginUI.VersionInfo.Text = $"版本 {Assembly.GetExecutingAssembly().GetName().Version}";
@@ -110,26 +110,8 @@ namespace ACT_Plugin_Souma_Downloader
 
         private async void DownloadSelected(object sender, EventArgs e)
         {
+            if (string.IsNullOrEmpty(PluginUI.txtUserDir.Text)) AutoConfigureCactbotPath();
             string userDir = PluginUI.txtUserDir.Text;
-
-            if (string.IsNullOrEmpty(userDir))
-            {
-                MessageBox.Show("用户目录为空！");
-                return;
-            }
-
-            if (!Directory.Exists(userDir))
-            {
-                AutoConfigureCactbotPath();
-
-                userDir = PluginUI.txtUserDir.Text;
-                if (!Directory.Exists(userDir))
-                {
-                    MessageBox.Show("路径不存在！");
-                    return;
-                }
-            }
-
             try
             {
                 // 创建目录

@@ -10,6 +10,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml;
@@ -82,7 +83,8 @@ namespace ACT_Plugin_Souma_Downloader
             string propertyValue = JObject.Parse(jsonContent)
                 .SelectToken("EventSourceConfigs.CactbotESConfig.OverlayData.options.general.CactbotUserDirectory")?.Value<string>();
 
-            if (!string.IsNullOrEmpty(propertyValue)) propertyValue = Path.Combine(propertyValue, "raidboss", "Souma");
+            if (!string.IsNullOrEmpty(propertyValue))
+                PluginUI.txtUserDir.Text = Path.Combine(propertyValue, "raidboss", "Souma");
             else
             {
                 var cactbot = ActGlobals.oFormActMain.ActPlugins.FirstOrDefault(x => x.pluginObj?.GetType().ToString() == "RainbowMage.OverlayPlugin.PluginLoader");
@@ -90,26 +92,17 @@ namespace ACT_Plugin_Souma_Downloader
                 string pluginsDirectory = Directory.GetParent(cactbotDirectory).FullName;
 
                 string[] searchPaths = { "cactbot-offline", "cactbot" };
-                string foundPath = null;
-
-                foreach (string searchPath in searchPaths)
-                {
-                    string fullPath = Path.Combine(pluginsDirectory, searchPath, "user");
-                    if (Directory.Exists(fullPath))
-                    {
-                        foundPath = fullPath;
-                        break;
-                    }
-                }
+                string foundPath = searchPaths
+                    .Select(searchPath => Path.Combine(pluginsDirectory, searchPath, "user"))
+                    .FirstOrDefault(fullPath => Directory.Exists(fullPath));
 
                 if (foundPath == null)
                 {
                     PluginUI.txtUserDir.Text = "自动设置失败，未找到user目录。";
                     return;
                 }
-                propertyValue = Path.Combine(foundPath, "raidboss", "Souma");
+                PluginUI.txtUserDir.Text = Path.Combine(foundPath, "raidboss", "Souma");
             }
-            PluginUI.txtUserDir.Text = propertyValue;
         }
 
         private async void DownloadSelected(object sender, EventArgs e)
@@ -257,11 +250,7 @@ namespace ACT_Plugin_Souma_Downloader
 
                 PluginUI.checkedListBox1.Items.Clear();
 
-                foreach (string downloadLink in ExtractDownloadLinks(phpContent))
-                {
-                    PluginUI.checkedListBox1.Items.Add(downloadLink);
-                }
-
+                PluginUI.checkedListBox1.Items.AddRange(ExtractFileNames(phpContent));
                 // 默认选中必装
                 for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
                 {
@@ -293,28 +282,13 @@ namespace ACT_Plugin_Souma_Downloader
             }
         }
 
-        static string[] ExtractDownloadLinks(string phpContent)
+        static string[] ExtractFileNames(string content)
         {
-            const string linkStartTag = "<a href=\"";
-            const string linkEndTag = "\">";
-            const string linkPrefix = "https://souma.diemoe.net/raidboss/";
+            MatchCollection matches = Regex.Matches(content, "<a href=\"https://souma.diemoe.net/raidboss/(.*?)\"");
 
-            int startIndex = 0;
-            int endIndex = 0;
-            var downloadLinksList = new List<string>();
-            while (true)
-            {
-                startIndex = phpContent.IndexOf(linkStartTag, endIndex);
-                if (startIndex == -1)
-                    break;
-
-                startIndex += linkStartTag.Length;
-                endIndex = phpContent.IndexOf(linkEndTag, startIndex);
-                string linkSubstring = phpContent.Substring(startIndex, endIndex - startIndex);
-                linkSubstring = linkSubstring.Replace(linkPrefix, ""); // 移除链接中的前缀部分
-                downloadLinksList.Add(linkSubstring);
-            }
-            return downloadLinksList.ToArray();
+            return (from Match match in matches 
+                select Uri.UnescapeDataString(match.Groups[1].Value))
+                .ToArray();
         }
 
         static async Task<bool> DownloadFileAsync(HttpClient client, string downloadLink, string filePath)

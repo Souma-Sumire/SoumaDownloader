@@ -44,7 +44,6 @@ namespace ACT_Plugin_Souma_Downloader
 
             xmlSettings = new SettingsSerializer(this); // 创建一个新的设置序列化器并将其传递给该实例。
             LoadSettings();
-            
             if (PluginUI.txtUserDir.Text.Length == 0) 
                 AutoConfigureCactbotPath();
             PluginUI.txtUserDir.Text = Path.GetFullPath(PluginUI.txtUserDir.Text);

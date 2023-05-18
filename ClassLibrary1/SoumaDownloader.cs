@@ -44,6 +44,7 @@ namespace ACT_Plugin_Souma_Downloader
             xmlSettings = new SettingsSerializer(this); // 创建一个新的设置序列化器并将其传递给该实例。
             LoadSettings();
             if (PluginUI.txtUserDir.Text.Length == 0) AutoConfigureCactbotPath();
+            PluginUI.txtUserDir.Text = PluginUI.txtUserDir.Text.Replace("\\\\", "\\"); // xml保存时会出现双斜线 不知道怎么正确解决 暂时无脑替换双斜线B
             PluginUI.VersionInfo.Text = $"版本 {Assembly.GetExecutingAssembly().GetName().Version}";
             PluginUI.btnDownload.Click += DownloadSelected;
             PluginUI.btnFetch.Click += BtnFetch_Click;
@@ -148,7 +149,6 @@ namespace ACT_Plugin_Souma_Downloader
             PluginUI.btnDownload.Enabled = false;
 
             string diemoePath = Path.Combine(Directory.GetParent(userDir).FullName, "呆萌整合");
-            MessageBox.Show(diemoePath);
             if (Directory.Exists(diemoePath))
             {
                 DialogResult diemoe = MessageBox.Show("检测到呆萌整合自带的JS文件，无法兼容，需要帮你删除呆萌整合自带的JS文件吗？", "冲突处理", MessageBoxButtons.YesNo, MessageBoxIcon.Question);

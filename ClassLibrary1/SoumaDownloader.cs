@@ -1,10 +1,8 @@
 ﻿using Advanced_Combat_Tracker;
-using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SoumaDownloader;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -26,6 +24,8 @@ namespace ACT_Plugin_Souma_Downloader
         Label lblStatus;    // 在ACT的插件选项卡中显示的状态标签
         readonly string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\SoumaDownloader.config.xml");
         SettingsSerializer xmlSettings;
+        string phpContent;
+        readonly Dictionary<string, string[]> fileData = new Dictionary<string, string[]>();
 
         #region IActPluginV1 Members
 
@@ -37,6 +37,7 @@ namespace ACT_Plugin_Souma_Downloader
             {
                 ParentClass = this
             };
+
             pluginScreenSpace.Controls.Add(PluginUI); // 将此UserControl添加到ACT提供的选项卡中。
             pluginScreenSpace.Text = "Souma下崽器";
             PluginUI.Dock = DockStyle.Fill; // 将UserControl扩展到填充选项卡的客户端空间。
@@ -44,14 +45,22 @@ namespace ACT_Plugin_Souma_Downloader
 
             xmlSettings = new SettingsSerializer(this); // 创建一个新的设置序列化器并将其传递给该实例。
             LoadSettings();
-            if (PluginUI.txtUserDir.Text=="")
+            if (PluginUI.txtUserDir.Text == "")
                 AutoConfigureCactbotPath();
             PluginUI.txtUserDir.Text = Path.GetFullPath(PluginUI.txtUserDir.Text);
             PluginUI.VersionInfo.Text = $"版本 {Assembly.GetExecutingAssembly().GetName().Version}";
-            
+
             PluginUI.btnDownload.Click += DownloadSelected;
             PluginUI.btnFetch.Click += BtnFetch_Click;
             _ = FetchList();
+            PluginUI.txtUserDir.TextChanged += TxtUserDir_TextChanged;
+            PluginUI.checkedListBox1.MouseMove += CheckedListBox1_MouseMove;
+
+        }
+
+        private void TxtUserDir_TextChanged(object sender, EventArgs e)
+        {
+            UpdateCheckedList();
         }
 
         public void DeInitPlugin()
@@ -160,19 +169,18 @@ namespace ACT_Plugin_Souma_Downloader
 
                     for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
                     {
-                        string filename = PluginUI.checkedListBox1.Items[i].ToString();
+                        string key = PluginUI.checkedListBox1.Items[i].ToString();
+                        string fileFullName = fileData.FirstOrDefault(x => x.Key == key).Value[0];
                         bool isChecked = PluginUI.checkedListBox1.GetItemChecked(i);
-
-                        string filePath = Path.Combine(userDir, filename);
+                        string filePath = Path.Combine(userDir, fileFullName);
 
                         if (isChecked)
                         {
                             // 如果项目被勾选，则下载文件
                             if (File.Exists(filePath) && !PluginUI.checkBoxOverwrite.Checked) //如果不勾选强制覆盖，并且文件已经存在，则跳过
                                 continue;
-                            
 
-                            if (!await DownloadFileAsync(client, $"https://souma.diemoe.net/raidboss/{filename}", userDir))
+                            if (!await DownloadFileAsync(client, $"https://souma.diemoe.net/raidboss/{fileFullName}", userDir))
                             {
                                 // 下载失败，恢复备份文件
                                 RestoreFiles(backupPath, userDir);
@@ -183,7 +191,7 @@ namespace ACT_Plugin_Souma_Downloader
                         else
                         {
                             // 如果项目未被勾选，且文件存在，则删除文件
-                            if (File.Exists(filePath)) 
+                            if (File.Exists(filePath))
                                 File.Delete(filePath);
                         }
                     }
@@ -192,9 +200,7 @@ namespace ACT_Plugin_Souma_Downloader
                     Directory.Delete(backupPath, true);
 
                     // 保存成功更新时间
-                    string updateTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-
-                    PluginUI.textlLastUpdateTime.Text = updateTime;
+                    PluginUI.textLastUpdateTime.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                     MessageBox.Show("下载完成！记得刷新Raidboss悬浮窗以加载。");
 
                     SaveSettings();
@@ -240,34 +246,66 @@ namespace ACT_Plugin_Souma_Downloader
         {
             try
             {
-                string phpUrl = "https://souma.diemoe.net/list_files.php";
+                string phpUrl = "https://souma.diemoe.net/list_files2.php";
                 HttpResponseMessage response = await client.GetAsync(phpUrl);
                 response.EnsureSuccessStatusCode();
-                string phpContent = await response.Content.ReadAsStringAsync();
-
-
-                PluginUI.checkedListBox1.Items.Clear();
-
-                foreach (string filename in ExtractFileNames(phpContent))
-                    PluginUI.checkedListBox1.Items.Add(filename,
-                        filename.Contains("必装")// 默认选中必装
-                        || File.Exists(Path.Combine(PluginUI.txtUserDir.Text, filename)));//选中已有文件
-
-
+                phpContent = await response.Content.ReadAsStringAsync();
+                UpdateFileData();
+                UpdateCheckedList();
                 PluginUI.btnDownload.Enabled = true;
+                PluginUI.textLastFetchTime.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
             }
             catch (Exception ex)
             {
                 MessageBox.Show("发生错误： " + ex.Message);
             }
         }
-        static string[] ExtractFileNames(string content)
-        {
-            MatchCollection matches = Regex.Matches(content, "<a href=\"https://souma.diemoe.net/raidboss/(.*?)\"");
 
-            return (from Match match in matches 
-                select Uri.UnescapeDataString(match.Groups[1].Value))
-                .ToArray();
+        private void UpdateFileData()
+        {
+            string pattern = @"<a href=""([^""]*)"">([^<]*)<\/a><span>([^<]*)<\/span>";
+            MatchCollection matches = Regex.Matches(phpContent, pattern);
+            fileData.Clear();
+
+            // 提取解析结果并保存到字典中
+            foreach (Match match in matches)
+            {
+                string fileName = match.Groups[2].Value;
+                string fileFullName = match.Groups[1].Value.Replace("https://souma.diemoe.net/raidboss/", "");
+                string fileModified = match.Groups[3].Value;
+                string[] fileInfo = { fileFullName, fileModified };
+                fileData.Add(fileName, fileInfo);
+            }
+        }
+
+        private void UpdateCheckedList()
+        {
+            PluginUI.checkedListBox1.Items.Clear();
+            foreach (KeyValuePair<string, string[]> pair in fileData)
+            {
+                string fileName = pair.Key;
+                string fileFullName = pair.Value[0];
+                PluginUI.checkedListBox1.Items.Add(fileName, fileName.Contains("必装") || File.Exists(Path.Combine(PluginUI.txtUserDir.Text, fileFullName)));
+            }
+        }
+
+
+        private void CheckedListBox1_MouseMove(object sender, MouseEventArgs e)
+        {
+            var index = PluginUI.checkedListBox1.IndexFromPoint(e.Location);
+            if (index != ListBox.NoMatches)
+            {
+                var key = PluginUI.checkedListBox1.Items[index].ToString();
+                string tipText = fileData[key][1];
+                if (PluginUI.toolTip1.GetToolTip(PluginUI.checkedListBox1) != key)
+                {
+                    PluginUI.toolTip1.SetToolTip(PluginUI.checkedListBox1, $"上游更新时间：{tipText}");
+                }
+            }
+            else
+            {
+                PluginUI.toolTip1.SetToolTip(PluginUI.checkedListBox1, "");
+            }
         }
 
         static async Task<bool> DownloadFileAsync(HttpClient client, string downloadLink, string filePath)
@@ -305,8 +343,8 @@ namespace ACT_Plugin_Souma_Downloader
         {
             // 添加您希望保存状态的任何控件。
             xmlSettings.AddControlSetting("userDir", PluginUI.txtUserDir);
-            //xmlSettings.AddControlSetting("checkedList", PluginUI.checkedListBox1);
-            xmlSettings.AddControlSetting("lastUpdateTime", PluginUI.textlLastUpdateTime);
+            xmlSettings.AddControlSetting("checkedList", PluginUI.textLastFetchTime);
+            xmlSettings.AddControlSetting("lastUpdateTime", PluginUI.textLastUpdateTime);
             if (File.Exists(settingsFile))
             {
                 FileStream fs = new FileStream(settingsFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);

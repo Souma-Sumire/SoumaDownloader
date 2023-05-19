@@ -16,14 +16,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v1.0.1
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v1
 
       - name: Restore NuGet packages
-        run: nuget restore ClassLibrary1.sln
+        run: dotnet restore ClassLibrary1.sln
 
       - name: Build DLL
-        run: msbuild /p:Configuration=Release ClassLibrary1/SoumaDownloader.csproj
+        run: dotnet build --configuration Release ClassLibrary1/SoumaDownloader.csproj
 
       - name: Create Release
         id: create_release

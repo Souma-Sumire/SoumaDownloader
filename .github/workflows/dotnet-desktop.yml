@@ -23,7 +23,7 @@ jobs:
         run: nuget restore ClassLibrary1.sln
 
       - name: Build DLL
-        run: msbuild /p:Configuration=Release ClassLibray1/SoumaDownloader.csproj
+        run: msbuild /p:Configuration=Release ClassLibrary1/SoumaDownloader.csproj
 
       - name: Create Release
         id: create_release
@@ -42,6 +42,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./ClassLibrary/bin/Release/SoumaDownloader.dll
+          asset_path: ./ClassLibrary1/bin/Release/SoumaDownloader.dll
           asset_name: SoumaDownloader.dll
           asset_content_type: application/octet-stream

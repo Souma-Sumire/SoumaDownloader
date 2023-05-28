@@ -111,7 +111,7 @@ namespace SoumaDownloader
             this.btnDownload.Name = "btnDownload";
             this.btnDownload.Size = new System.Drawing.Size(87, 30);
             this.btnDownload.TabIndex = 7;
-            this.btnDownload.Text = "更新本地文件";
+            this.btnDownload.Text = "同步本地文件";
             this.btnDownload.UseVisualStyleBackColor = true;
             // 
             // btnSelectAll
@@ -211,7 +211,7 @@ namespace SoumaDownloader
             // textBox1
             // 
             this.textBox1.Font = new System.Drawing.Font("宋体", 9F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(134)));
-            this.textBox1.Location = new System.Drawing.Point(5, 75);
+            this.textBox1.Location = new System.Drawing.Point(5, 80);
             this.textBox1.Name = "textBox1";
             this.textBox1.ReadOnly = true;
             this.textBox1.Size = new System.Drawing.Size(531, 21);

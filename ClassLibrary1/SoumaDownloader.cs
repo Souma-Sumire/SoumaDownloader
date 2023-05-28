@@ -138,14 +138,14 @@ namespace ACT_Plugin_Souma_Downloader
             string diemoePath = Path.Combine(Directory.GetParent(userDir).FullName, "呆萌整合");
             if (Directory.Exists(diemoePath))
             {
-                DialogResult diemoe = MessageBox.Show("检测到呆萌整合自带的JS文件，无法兼容，需要帮你删除呆萌整合自带的JS文件吗？", "冲突处理", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+                DialogResult diemoe = MessageBox.Show("检测到呆萌整合自带的JS文件，无法兼容，需要帮你删除呆萌整合自带的JS文件吗？（强烈建议删除）", "冲突处理", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
                 if (diemoe == DialogResult.Yes)
                 {
                     Directory.Delete(diemoePath, true);
                 }
             }
 
-            DialogResult result = MessageBox.Show("开始下载吗？", "下载确认", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            DialogResult result = MessageBox.Show("开始下载吗？本程序会自动目录下删除未被勾选的js文件。", "确认", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
 
             // 用户点击了“是”
             if (result == DialogResult.Yes)
@@ -166,6 +166,13 @@ namespace ACT_Plugin_Souma_Downloader
 
                     // 备份原文件
                     BackupFiles(userDir, backupPath);
+
+                    string[] files = Directory.GetFiles(userDir, "*.js", SearchOption.AllDirectories);
+
+                    var filesWithoutExtension = files.Select(file => Path.GetFileNameWithoutExtension(file));
+                    var itemsToBeDeleted = filesWithoutExtension.Except(PluginUI.checkedListBox1.Items.Cast<string>());
+
+                    foreach (var file in itemsToBeDeleted) File.Delete(Path.Combine(userDir, file + ".js"));
 
                     for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
                     {

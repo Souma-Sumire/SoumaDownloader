@@ -26,6 +26,8 @@ namespace ACT_Plugin_Souma_Downloader
         SettingsSerializer xmlSettings;
         string phpContent;
         readonly Dictionary<string, string[]> fileData = new Dictionary<string, string[]>();
+        readonly string url = $"https://souma.diemoe.net/raidboss/";
+        readonly string phpUrl = "https://souma.diemoe.net/list_files2.php";
 
         #region IActPluginV1 Members
 
@@ -172,6 +174,7 @@ namespace ACT_Plugin_Souma_Downloader
                     var filesWithoutExtension = files.Select(file => Path.GetFileNameWithoutExtension(file));
                     var itemsToBeDeleted = filesWithoutExtension.Except(PluginUI.checkedListBox1.Items.Cast<string>());
 
+                    // 删除未勾选
                     foreach (var file in itemsToBeDeleted) File.Delete(Path.Combine(userDir, file + ".js"));
 
                     for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
@@ -186,8 +189,7 @@ namespace ACT_Plugin_Souma_Downloader
                             // 如果项目被勾选，则下载文件
                             if (File.Exists(filePath) && !PluginUI.checkBoxOverwrite.Checked) //如果不勾选强制覆盖，并且文件已经存在，则跳过
                                 continue;
-
-                            if (!await DownloadFileAsync(client, $"https://souma.diemoe.net/raidboss/{fileFullName}", userDir))
+                            if (!await DownloadFileAsync(client, $"{url}{fileFullName}", userDir))
                             {
                                 // 下载失败，恢复备份文件
                                 RestoreFiles(backupPath, userDir);
@@ -253,7 +255,6 @@ namespace ACT_Plugin_Souma_Downloader
         {
             try
             {
-                string phpUrl = "https://souma.diemoe.net/list_files2.php";
                 HttpResponseMessage response = await client.GetAsync(phpUrl);
                 response.EnsureSuccessStatusCode();
                 phpContent = await response.Content.ReadAsStringAsync();
@@ -278,7 +279,7 @@ namespace ACT_Plugin_Souma_Downloader
             foreach (Match match in matches)
             {
                 string fileName = match.Groups[2].Value;
-                string fileFullName = match.Groups[1].Value.Replace("https://souma.diemoe.net/raidboss/", "");
+                string fileFullName = match.Groups[1].Value.Replace(url, "");
                 string fileModified = match.Groups[3].Value;
                 string[] fileInfo = { fileFullName, fileModified };
                 fileData.Add(fileName, fileInfo);

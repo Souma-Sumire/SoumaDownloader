@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 [assembly: AssemblyTitle("Souma下崽器")]
-[assembly: AssemblyDescription("    ")]
+[assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Souma")]
 [assembly: AssemblyProduct("")]
@@ -12,4 +12,4 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyCulture("")]
 [assembly: ComVisible(false)]
 [assembly: Guid("5de614e2-9407-4a10-ad2c-c33d991e539e")]
-[assembly: AssemblyVersion("1.0.4.2")]
+[assembly: AssemblyVersion("1.0.5.0")]

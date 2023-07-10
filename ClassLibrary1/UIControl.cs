@@ -17,7 +17,7 @@ namespace SoumaDownloader
         }
         private void BtnOpenDirectory_Click(object sender, EventArgs e)
         {
-            string userPath = ParentClass.PluginUI.txtUserDir.Text;
+            string userPath = ParentClass.PluginUI.textUserDir.Text;
 
             try
             {
@@ -102,7 +102,7 @@ namespace SoumaDownloader
         {
             ParentClass.AutoConfigureCactbotPath();
 
-            if (string.IsNullOrEmpty(ParentClass.PluginUI.txtUserDir.Text) || ParentClass.PluginUI.txtUserDir.Text.Contains("自动设置失败"))
+            if (string.IsNullOrEmpty(ParentClass.PluginUI.textUserDir.Text) || ParentClass.PluginUI.textUserDir.Text.Contains("自动设置失败"))
             {
                 MessageBox.Show("无效的用户目录！", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
@@ -111,6 +111,11 @@ namespace SoumaDownloader
         private void LinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
         {
             System.Diagnostics.Process.Start("https://github.com/Souma-Sumire/raidboss-user-js-public/");
+        }
+
+        private void checkBox1_CheckedChanged(object sender, EventArgs e)
+        {
+
         }
     }
 }

@@ -3,6 +3,7 @@ using Newtonsoft.Json.Linq;
 using SoumaDownloader;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
@@ -47,17 +48,42 @@ namespace ACT_Plugin_Souma_Downloader
 
             xmlSettings = new SettingsSerializer(this); // 创建一个新的设置序列化器并将其传递给该实例。
             LoadSettings();
-            if (PluginUI.txtUserDir.Text == "")
-                AutoConfigureCactbotPath();
-            PluginUI.txtUserDir.Text = Path.GetFullPath(PluginUI.txtUserDir.Text);
+            if (PluginUI.textUserDir.Text == "") AutoConfigureCactbotPath();
+            PluginUI.textUserDir.Text = Path.GetFullPath(PluginUI.textUserDir.Text);
             PluginUI.VersionInfo.Text = $"版本 {Assembly.GetExecutingAssembly().GetName().Version}";
 
             PluginUI.btnDownload.Click += DownloadSelected;
             PluginUI.btnFetch.Click += BtnFetch_Click;
-            _ = FetchList();
-            PluginUI.txtUserDir.TextChanged += TxtUserDir_TextChanged;
+            PluginUI.textUserDir.TextChanged += TxtUserDir_TextChanged;
             PluginUI.checkedListBox1.MouseMove += CheckedListBox1_MouseMove;
 
+            StartTask();
+        }
+
+        public async void StartTask()
+        {
+            await FetchList();
+            CheckUserDir();
+            if (PluginUI.checkBoxAutoUpdate.Checked)
+            {
+                // 没手动更新过
+                if (string.IsNullOrEmpty(PluginUI.textLastUpdateTime.Text))
+                {
+                    await DownloadFile(true);
+                    return;
+                }
+                else
+                {
+                    // 比较上次更新时间
+                    DateTime dateTime = DateTime.ParseExact(PluginUI.textLastUpdateTime.Text, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
+                    TimeSpan timeDifference = DateTime.Now - dateTime;
+                    if (timeDifference.TotalHours > 16)
+                    {
+                        DeleteFoolFile();
+                        await DownloadFile(true);
+                    }
+                }
+            }
         }
 
         private void TxtUserDir_TextChanged(object sender, EventArgs e)
@@ -79,7 +105,7 @@ namespace ACT_Plugin_Souma_Downloader
 
             if (!File.Exists(settingsPath))
             {
-                PluginUI.txtUserDir.Text = "自动设置失败，未找到OverlayPlugin.config.json。";
+                PluginUI.textUserDir.Text = "自动设置失败，未找到OverlayPlugin.config.json。";
                 return;
             }
 
@@ -90,7 +116,7 @@ namespace ACT_Plugin_Souma_Downloader
             }
             catch (Exception ex)
             {
-                PluginUI.txtUserDir.Text = "自动设置失败，无法读取OverlayPlugin.config.json：" + ex.Message;
+                PluginUI.textUserDir.Text = "自动设置失败，无法读取OverlayPlugin.config.json：" + ex.Message;
                 return;
             }
 
@@ -98,7 +124,7 @@ namespace ACT_Plugin_Souma_Downloader
                 .SelectToken("EventSourceConfigs.CactbotESConfig.OverlayData.options.general.CactbotUserDirectory")?.Value<string>();
 
             if (!string.IsNullOrEmpty(propertyValue))
-                PluginUI.txtUserDir.Text = Path.Combine(propertyValue, "raidboss", "Souma");
+                PluginUI.textUserDir.Text = Path.Combine(propertyValue, "raidboss", "Souma");
             else
             {
                 var cactbot = ActGlobals.oFormActMain.ActPlugins.FirstOrDefault(x => x.pluginObj?.GetType().ToString() == "RainbowMage.OverlayPlugin.PluginLoader");
@@ -112,119 +138,124 @@ namespace ACT_Plugin_Souma_Downloader
 
                 if (foundPath == null)
                 {
-                    PluginUI.txtUserDir.Text = "自动设置失败，未找到user目录。";
+                    PluginUI.textUserDir.Text = "自动设置失败，未找到user目录。";
                     return;
                 }
-                PluginUI.txtUserDir.Text = Path.Combine(foundPath, "raidboss", "Souma");
+                PluginUI.textUserDir.Text = Path.Combine(foundPath, "raidboss", "Souma");
             }
         }
 
-        private async void DownloadSelected(object sender, EventArgs e)
+        private void CheckUserDir()
         {
-            if (string.IsNullOrEmpty(PluginUI.txtUserDir.Text)) AutoConfigureCactbotPath();
-            string userDir = PluginUI.txtUserDir.Text;
+            if (string.IsNullOrEmpty(PluginUI.textUserDir.Text)) AutoConfigureCactbotPath();
+            if (Directory.Exists(PluginUI.textUserDir.Text)) return;
             try
             {
                 // 创建目录
-                Directory.CreateDirectory(userDir);
+                Directory.CreateDirectory(PluginUI.textUserDir.Text);
             }
             catch (Exception ex)
             {
                 MessageBox.Show("Failed to create cactbotUserDirectory: " + ex.Message);
                 return;
             }
-
-            // 禁用下载按钮
-            PluginUI.btnDownload.Enabled = false;
-
-            string diemoePath = Path.Combine(Directory.GetParent(userDir).FullName, "呆萌整合");
+        }
+        private void DeleteFoolFile()
+        {
+            string diemoePath = Path.Combine(Directory.GetParent(PluginUI.textUserDir.Text).FullName, "呆萌整合");
             if (Directory.Exists(diemoePath))
             {
-                DialogResult diemoe = MessageBox.Show("检测到呆萌整合自带的JS文件，无法兼容，需要帮你删除呆萌整合自带的JS文件吗？（强烈建议删除）", "冲突处理", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-                if (diemoe == DialogResult.Yes)
-                {
-                    Directory.Delete(diemoePath, true);
-                }
+                Directory.Delete(diemoePath, true);
+                //File.Delete(Path.Combine(diemoePath, "p1s.js"));
+                //File.Delete(Path.Combine(diemoePath, "p2s.js"));
+                //File.Delete(Path.Combine(diemoePath, "p3s.js"));
+                //File.Delete(Path.Combine(diemoePath, "p4s.js"));
             }
+        }
+        private async Task DownloadFile(bool silent = false)
+        {
+            string userDir = PluginUI.textUserDir.Text;
+            // 备份原文件的目录
+            string backupPath = Path.Combine(Path.GetTempPath(), "cactbot_backup");
 
+            try
+            {
+                // 删除之前的备份目录
+                if (Directory.Exists(backupPath)) Directory.Delete(backupPath, true);
+
+                // 创建备份目录
+                Directory.CreateDirectory(backupPath);
+
+                // 备份原文件
+                BackupFiles(userDir, backupPath);
+
+                string[] files = Directory.GetFiles(userDir, "*.js", SearchOption.AllDirectories);
+
+                var filesWithoutExtension = files.Select(file => Path.GetFileNameWithoutExtension(file));
+                var itemsToBeDeleted = filesWithoutExtension.Except(PluginUI.checkedListBox1.Items.Cast<string>());
+
+                // 删除未勾选
+                foreach (var file in itemsToBeDeleted) File.Delete(Path.Combine(userDir, file + ".js"));
+
+                for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
+                {
+                    string key = PluginUI.checkedListBox1.Items[i].ToString();
+                    string fileFullName = fileData.FirstOrDefault(x => x.Key == key).Value[0];
+                    bool isChecked = PluginUI.checkedListBox1.GetItemChecked(i);
+                    string filePath = Path.Combine(userDir, fileFullName);
+
+                    if (isChecked)
+                    {
+                        //// 如果项目被勾选，则下载文件
+                        //if (File.Exists(filePath) && !PluginUI.checkBoxOverwrite.Checked) //如果不勾选强制覆盖，并且文件已经存在，则跳过
+                        //    continue;
+                        if (!await DownloadFileAsync(client, $"{url}{fileFullName}", userDir))
+                        {
+                            // 下载失败，恢复备份文件
+                            RestoreFiles(backupPath, userDir);
+                            if (!silent) MessageBox.Show("下载失败！已恢复原始文件。");
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        // 如果项目未被勾选，且文件存在，则删除文件
+                        if (File.Exists(filePath))
+                            File.Delete(filePath);
+                    }
+                }
+
+                // 下载完成后，删除备份目录
+                Directory.Delete(backupPath, true);
+
+                // 保存成功更新时间
+                PluginUI.textLastUpdateTime.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                if (!silent) MessageBox.Show("下载完成！记得刷新Raidboss悬浮窗以加载。");
+
+                SaveSettings();
+            }
+            catch (Exception ex)
+            {
+                // 发生异常，恢复备份文件
+                RestoreFiles(backupPath, userDir);
+                MessageBox.Show("下载过程中发生错误：" + ex.Message);
+            }
+            finally
+            {
+                // 启用下载按钮
+                PluginUI.btnDownload.Enabled = true;
+            }
+        }
+        private async void DownloadSelected(object sender, EventArgs e)
+        {
+            PluginUI.btnDownload.Enabled = false;
+            CheckUserDir();
             DialogResult result = MessageBox.Show("开始下载吗？本程序会自动目录下删除未被勾选的js文件。", "确认", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-
             // 用户点击了“是”
             if (result == DialogResult.Yes)
             {
-                // 备份原文件的目录
-                string backupPath = Path.Combine(Path.GetTempPath(), "cactbot_backup");
-
-                try
-                {
-                    // 删除之前的备份目录
-                    if (Directory.Exists(backupPath))
-                    {
-                        Directory.Delete(backupPath, true);
-                    }
-
-                    // 创建备份目录
-                    Directory.CreateDirectory(backupPath);
-
-                    // 备份原文件
-                    BackupFiles(userDir, backupPath);
-
-                    string[] files = Directory.GetFiles(userDir, "*.js", SearchOption.AllDirectories);
-
-                    var filesWithoutExtension = files.Select(file => Path.GetFileNameWithoutExtension(file));
-                    var itemsToBeDeleted = filesWithoutExtension.Except(PluginUI.checkedListBox1.Items.Cast<string>());
-
-                    // 删除未勾选
-                    foreach (var file in itemsToBeDeleted) File.Delete(Path.Combine(userDir, file + ".js"));
-
-                    for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
-                    {
-                        string key = PluginUI.checkedListBox1.Items[i].ToString();
-                        string fileFullName = fileData.FirstOrDefault(x => x.Key == key).Value[0];
-                        bool isChecked = PluginUI.checkedListBox1.GetItemChecked(i);
-                        string filePath = Path.Combine(userDir, fileFullName);
-
-                        if (isChecked)
-                        {
-                            // 如果项目被勾选，则下载文件
-                            if (File.Exists(filePath) && !PluginUI.checkBoxOverwrite.Checked) //如果不勾选强制覆盖，并且文件已经存在，则跳过
-                                continue;
-                            if (!await DownloadFileAsync(client, $"{url}{fileFullName}", userDir))
-                            {
-                                // 下载失败，恢复备份文件
-                                RestoreFiles(backupPath, userDir);
-                                MessageBox.Show("下载失败！已恢复原始文件。");
-                                return;
-                            }
-                        }
-                        else
-                        {
-                            // 如果项目未被勾选，且文件存在，则删除文件
-                            if (File.Exists(filePath))
-                                File.Delete(filePath);
-                        }
-                    }
-
-                    // 下载完成后，删除备份目录
-                    Directory.Delete(backupPath, true);
-
-                    // 保存成功更新时间
-                    PluginUI.textLastUpdateTime.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                    MessageBox.Show("下载完成！记得刷新Raidboss悬浮窗以加载。");
-
-                    SaveSettings();
-                }
-                catch (Exception ex)
-                {
-                    // 发生异常，恢复备份文件
-                    RestoreFiles(backupPath, userDir);
-                    MessageBox.Show("下载过程中发生错误：" + ex.Message);
-                }
-                finally
-                {
-                    // 启用下载按钮
-                    PluginUI.btnDownload.Enabled = true;
-                }
+                DeleteFoolFile();
+                await DownloadFile();
             }
             PluginUI.btnDownload.Enabled = true;
         }
@@ -293,7 +324,7 @@ namespace ACT_Plugin_Souma_Downloader
             {
                 string fileName = pair.Key;
                 string fileFullName = pair.Value[0];
-                PluginUI.checkedListBox1.Items.Add(fileName, fileName.Contains("必装") || File.Exists(Path.Combine(PluginUI.txtUserDir.Text, fileFullName)));
+                PluginUI.checkedListBox1.Items.Add(fileName, fileName.Contains("必装") || File.Exists(Path.Combine(PluginUI.textUserDir.Text, fileFullName)));
             }
         }
 
@@ -350,9 +381,10 @@ namespace ACT_Plugin_Souma_Downloader
         void LoadSettings()
         {
             // 添加您希望保存状态的任何控件。
-            xmlSettings.AddControlSetting("userDir", PluginUI.txtUserDir);
+            xmlSettings.AddControlSetting("userDir", PluginUI.textUserDir);
             xmlSettings.AddControlSetting("checkedList", PluginUI.textLastFetchTime);
             xmlSettings.AddControlSetting("lastUpdateTime", PluginUI.textLastUpdateTime);
+            xmlSettings.AddControlSetting("autoUpdate", PluginUI.checkBoxAutoUpdate);
             if (File.Exists(settingsFile))
             {
                 FileStream fs = new FileStream(settingsFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);

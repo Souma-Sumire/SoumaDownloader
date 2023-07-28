@@ -31,8 +31,9 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Advanced Combat Tracker">
-      <HintPath>lib\Advanced Combat Tracker.exe</HintPath>
+    <Reference Include="Advanced Combat Tracker, Version=3.6.2.279, Culture=neutral, PublicKeyToken=a946b61e93d97868, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\lib\Advanced Combat Tracker.exe</HintPath>
     </Reference>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>..\packages\Newtonsoft.Json.13.0.2\lib\net45\Newtonsoft.Json.dll</HintPath>

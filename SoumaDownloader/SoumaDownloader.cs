@@ -62,9 +62,9 @@ namespace ACT_Plugin_Souma_Downloader
 
         public async void StartTask()
         {
-            await FetchList();
+            bool fetchSuccessful = await FetchList();
             CheckUserDir();
-            if (PluginUI.checkBoxAutoUpdate.Checked)
+            if (fetchSuccessful && PluginUI.checkBoxAutoUpdate.Checked)
             {
                 // 没手动更新过
                 if (string.IsNullOrEmpty(PluginUI.textLastUpdateTime.Text))
@@ -174,6 +174,20 @@ namespace ACT_Plugin_Souma_Downloader
         }
         private async Task DownloadFile(bool silent = false)
         {
+            if (fileData.Count == 0)
+            {
+                bool fetchSuccessful = await FetchList();
+                if (!fetchSuccessful)
+                {
+                    MessageBox.Show("无法获取列表。请稍后重试。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+            }
+            if (fileData.Count == 0)
+            {
+                MessageBox.Show("列表为空。请稍后重试。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
             string userDir = PluginUI.textUserDir.Text;
             // 备份原文件的目录
             string backupPath = Path.Combine(Path.GetTempPath(), "cactbot_backup");
@@ -282,7 +296,7 @@ namespace ACT_Plugin_Souma_Downloader
 
         private async void BtnFetch_Click(object sender, EventArgs e) => await FetchList();
 
-        private async Task FetchList()
+        private async Task<bool> FetchList()
         {
             try
             {
@@ -293,10 +307,12 @@ namespace ACT_Plugin_Souma_Downloader
                 UpdateCheckedList();
                 PluginUI.btnDownload.Enabled = true;
                 PluginUI.textLastFetchTime.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                return true; // Fetch was successful
             }
             catch (Exception ex)
             {
-                MessageBox.Show("发生错误： " + ex.Message);
+                MessageBox.Show("发生错误： " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return false; // Fetch failed
             }
         }
 

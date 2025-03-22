@@ -3,10 +3,9 @@ using Newtonsoft.Json.Linq;
 using SoumaDownloader;
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
+using System.Net;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -21,16 +20,14 @@ namespace ACT_Plugin_Souma_Downloader
         public string filePath;
         public string jsonContent;
         internal UIControl PluginUI;
-        public HttpClient client = new HttpClient();
         Label lblStatus;    // 在ACT的插件选项卡中显示的状态标签
         readonly string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\SoumaDownloader.config.xml");
         SettingsSerializer xmlSettings;
         string phpContent;
         readonly Dictionary<string, string[]> fileData = new Dictionary<string, string[]>();
-        readonly string url = $"https://souma.diemoe.net/raidboss/";
-        readonly string phpUrl = "https://souma.diemoe.net/list_files2.php";
 
-        #region IActPluginV1 Members
+        readonly string baseUrl = $"https://souma.diemoe.net/raidboss/";
+        readonly string phpUrl = "https://souma.diemoe.net/list_files2.php";
 
         public void InitPlugin(TabPage pluginScreenSpace, Label pluginStatusText)
         {
@@ -53,42 +50,38 @@ namespace ACT_Plugin_Souma_Downloader
             PluginUI.VersionInfo.Text = $"版本 {Assembly.GetExecutingAssembly().GetName().Version}";
 
             PluginUI.btnDownload.Click += DownloadSelected;
-            PluginUI.btnFetch.Click += BtnFetch_Click;
             PluginUI.textUserDir.TextChanged += TxtUserDir_TextChanged;
             PluginUI.checkedListBox1.MouseMove += CheckedListBox1_MouseMove;
 
-            StartTask();
-        }
-
-        public async void StartTask()
-        {
-            bool fetchSuccessful = await FetchList();
-            CheckUserDir();
-            if (fetchSuccessful && PluginUI.checkBoxAutoUpdate.Checked)
+            var parentTabControl = FindParentTabControl(pluginScreenSpace);
+            if (parentTabControl != null)
             {
-                // 没手动更新过
-                if (string.IsNullOrEmpty(PluginUI.textLastUpdateTime.Text))
+                void handler(object sender, TabControlEventArgs e)
                 {
-                    await DownloadFile(true);
-                    return;
-                }
-                else
-                {
-                    // 比较上次更新时间
-                    DateTime dateTime = DateTime.ParseExact(PluginUI.textLastUpdateTime.Text, "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
-                    TimeSpan timeDifference = DateTime.Now - dateTime;
-                    if (timeDifference.TotalHours > 16)
+                    if (e.TabPage == pluginScreenSpace)
                     {
-                        DeleteFoolFile();
-                        await DownloadFile(true);
+                        StartTask();
+                        if (fileData.Count != 0)
+                        {
+                            parentTabControl.Selected -= handler;
+                        }
                     }
                 }
+                parentTabControl.Selected += handler;
             }
         }
 
-        private void TxtUserDir_TextChanged(object sender, EventArgs e)
+        private TabControl FindParentTabControl(Control control)
         {
-            UpdateCheckedList();
+            while (control != null)
+            {
+                if (control.Parent is TabControl tabControl)
+                {
+                    return tabControl;
+                }
+                control = control.Parent;
+            }
+            return null;
         }
 
         public void DeInitPlugin()
@@ -97,7 +90,16 @@ namespace ACT_Plugin_Souma_Downloader
             lblStatus.Text = "插件已退出";
         }
 
-        #endregion
+        public async void StartTask()
+        {
+            await UpdateList();
+            CheckUserDir();
+        }
+
+        private void TxtUserDir_TextChanged(object sender, EventArgs e)
+        {
+            UpdateCheckedList();
+        }
 
         public void AutoConfigureCactbotPath()
         {
@@ -160,34 +162,9 @@ namespace ACT_Plugin_Souma_Downloader
                 return;
             }
         }
-        private void DeleteFoolFile()
+
+        private void Process()
         {
-            string diemoePath = Path.Combine(Directory.GetParent(PluginUI.textUserDir.Text).FullName, "呆萌整合");
-            if (Directory.Exists(diemoePath))
-            {
-                Directory.Delete(diemoePath, true);
-                //File.Delete(Path.Combine(diemoePath, "p1s.js"));
-                //File.Delete(Path.Combine(diemoePath, "p2s.js"));
-                //File.Delete(Path.Combine(diemoePath, "p3s.js"));
-                //File.Delete(Path.Combine(diemoePath, "p4s.js"));
-            }
-        }
-        private async Task DownloadFile(bool silent = false)
-        {
-            if (fileData.Count == 0)
-            {
-                bool fetchSuccessful = await FetchList();
-                if (!fetchSuccessful)
-                {
-                    MessageBox.Show("无法获取列表。请稍后重试。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-            }
-            if (fileData.Count == 0)
-            {
-                MessageBox.Show("列表为空。请稍后重试。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
             string userDir = PluginUI.textUserDir.Text;
             // 备份原文件的目录
             string backupPath = Path.Combine(Path.GetTempPath(), "cactbot_backup");
@@ -216,20 +193,11 @@ namespace ACT_Plugin_Souma_Downloader
                     string key = PluginUI.checkedListBox1.Items[i].ToString();
                     string fileFullName = fileData.FirstOrDefault(x => x.Key == key).Value[0];
                     bool isChecked = PluginUI.checkedListBox1.GetItemChecked(i);
+                    string fileUrl = $"{baseUrl}{fileFullName}";
                     string filePath = Path.Combine(userDir, fileFullName);
-
                     if (isChecked)
                     {
-                        //// 如果项目被勾选，则下载文件
-                        //if (File.Exists(filePath) && !PluginUI.checkBoxOverwrite.Checked) //如果不勾选强制覆盖，并且文件已经存在，则跳过
-                        //    continue;
-                        if (!await DownloadFileAsync(client, $"{url}{fileFullName}", userDir))
-                        {
-                            // 下载失败，恢复备份文件
-                            RestoreFiles(backupPath, userDir);
-                            if (!silent) MessageBox.Show("下载失败！已恢复原始文件。");
-                            return;
-                        }
+                        Download(fileUrl, filePath);
                     }
                     else
                     {
@@ -243,8 +211,7 @@ namespace ACT_Plugin_Souma_Downloader
                 Directory.Delete(backupPath, true);
 
                 // 保存成功更新时间
-                PluginUI.textLastUpdateTime.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
-                if (!silent) MessageBox.Show("下载完成！记得刷新Raidboss悬浮窗以加载。");
+                MessageBox.Show("下载完成！记得刷新 Raidboss 悬浮窗以加载。");
 
                 SaveSettings();
             }
@@ -252,7 +219,7 @@ namespace ACT_Plugin_Souma_Downloader
             {
                 // 发生异常，恢复备份文件
                 RestoreFiles(backupPath, userDir);
-                MessageBox.Show("下载过程中发生错误：" + ex.Message);
+                MessageBox.Show("下载过程中发生错误：" + ex);
             }
             finally
             {
@@ -260,18 +227,35 @@ namespace ACT_Plugin_Souma_Downloader
                 PluginUI.btnDownload.Enabled = true;
             }
         }
+
         private async void DownloadSelected(object sender, EventArgs e)
         {
             PluginUI.btnDownload.Enabled = false;
             CheckUserDir();
-            DialogResult result = MessageBox.Show("开始下载吗？本程序会自动目录下删除未被勾选的js文件。", "确认", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (fileData.Count == 0)
+            {
+                bool fetchSuccessful = await UpdateList();
+                if (!fetchSuccessful)
+                {
+                    MessageBox.Show("无法获取列表。请稍后重试。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+            }
+            if (fileData.Count == 0)
+            {
+                MessageBox.Show("列表为空。请稍后重试。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                return;
+            }
+            DialogResult result = MessageBox.Show("未被勾选的js文件将会被删除，确认继续吗？", "确认", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
             // 用户点击了“是”
             if (result == DialogResult.Yes)
             {
-                DeleteFoolFile();
-                await DownloadFile();
+                Process();
             }
-            PluginUI.btnDownload.Enabled = true;
+            else
+            {
+                PluginUI.btnDownload.Enabled = true;
+            }
         }
 
         private void BackupFiles(string sourcePath, string backupPath)
@@ -294,26 +278,78 @@ namespace ACT_Plugin_Souma_Downloader
             }
         }
 
-        private async void BtnFetch_Click(object sender, EventArgs e) => await FetchList();
-
-        private async Task<bool> FetchList()
+        private async Task<bool> UpdateList()
         {
             try
             {
-                HttpResponseMessage response = await client.GetAsync(phpUrl);
-                response.EnsureSuccessStatusCode();
-                phpContent = await response.Content.ReadAsStringAsync();
+                using (Stream stream = GetStream(phpUrl))
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    phpContent = await reader.ReadToEndAsync();
+                }
                 UpdateFileData();
                 UpdateCheckedList();
                 PluginUI.btnDownload.Enabled = true;
-                PluginUI.textLastFetchTime.Text = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
                 return true; // Fetch was successful
             }
             catch (Exception ex)
             {
-                MessageBox.Show("发生错误： " + ex.Message, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                MessageBox.Show("发生错误： " + ex, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 return false; // Fetch failed
             }
+        }
+
+        public Stream GetStream(string url, int Timeout = 15000)
+        {
+            // 设置安全协议
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
+            request.Method = "GET";
+
+            // 设置请求的内容类型，表明接受HTML、XHTML和XML格式的数据
+            request.ContentType = "text/html,application/xhtml+xml,application/xml;charset=UTF-8";
+
+            // 设置用户代理（User-Agent）
+            request.UserAgent = null;
+
+            // 设置请求超时时间
+            request.Timeout = Timeout;
+            request.AutomaticDecompression = DecompressionMethods.GZip;
+            request.KeepAlive = true;
+
+            // 发送请求并获取服务器的响应
+            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+
+            if (response.StatusCode == HttpStatusCode.NotFound || // 404 - 资源未找到
+                response.StatusCode == HttpStatusCode.ServiceUnavailable || // 503 - 服务器不可用
+                response.StatusCode == HttpStatusCode.Unauthorized || // 401 - 未授权
+                response.StatusCode == HttpStatusCode.GatewayTimeout || // 504 - 网关超时
+                response.StatusCode == HttpStatusCode.BadGateway || // 502 - 错误网关
+                response.StatusCode == HttpStatusCode.BadRequest || // 400 - 错误请求
+                response.StatusCode == HttpStatusCode.Forbidden) // 403 - 禁止访问
+            {
+                return null;
+            }
+
+            return response.GetResponseStream();
+        }
+
+
+        public void Download(string url, string path)
+        {
+            Stream temp = GetStream(url, 15000);
+            if (!Directory.Exists(Path.GetDirectoryName(path)))
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+            }
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+            FileStream tempFile = File.Create(path);
+            temp.CopyTo(tempFile);
+            tempFile.Dispose();
+            temp.Dispose();
         }
 
         private void UpdateFileData()
@@ -326,7 +362,7 @@ namespace ACT_Plugin_Souma_Downloader
             foreach (Match match in matches)
             {
                 string fileName = match.Groups[2].Value;
-                string fileFullName = match.Groups[1].Value.Replace(url, "");
+                string fileFullName = match.Groups[1].Value.Replace(baseUrl, "");
                 string fileModified = match.Groups[3].Value;
                 string[] fileInfo = { fileFullName, fileModified };
                 fileData.Add(fileName, fileInfo);
@@ -363,44 +399,11 @@ namespace ACT_Plugin_Souma_Downloader
             }
         }
 
-        static async Task<bool> DownloadFileAsync(HttpClient client, string downloadLink, string filePath)
-        {
-            // 构建目标文件的完整路径
-            string fileName = Path.GetFileName(downloadLink);
-            string fileSavePath = Path.Combine(filePath, fileName);
-
-            try
-            {
-                // 发送GET请求下载文件
-                HttpResponseMessage response = await client.GetAsync(Uri.EscapeUriString(downloadLink));
-                response.EnsureSuccessStatusCode();
-
-                // 将下载的文件保存到指定路径
-                using (FileStream fileStream = new FileStream(fileSavePath, FileMode.Create, FileAccess.Write))
-                {
-                    await response.Content.CopyToAsync(fileStream);
-                }
-
-                return true; // 下载成功，返回 true
-            }
-            catch (Exception ex)
-            {
-                // 下载过程中发生异常，可以在此处进行错误处理
-                Console.WriteLine("下载文件时出现错误：" + ex.Message);
-                return false; // 下载失败，返回 false
-            }
-        }
-
-
         #region Save&Load
 
         void LoadSettings()
         {
-            // 添加您希望保存状态的任何控件。
             xmlSettings.AddControlSetting("userDir", PluginUI.textUserDir);
-            xmlSettings.AddControlSetting("checkedList", PluginUI.textLastFetchTime);
-            xmlSettings.AddControlSetting("lastUpdateTime", PluginUI.textLastUpdateTime);
-            xmlSettings.AddControlSetting("autoUpdate", PluginUI.checkBoxAutoUpdate);
             if (File.Exists(settingsFile))
             {
                 FileStream fs = new FileStream(settingsFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);

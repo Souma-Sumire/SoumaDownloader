@@ -2,8 +2,6 @@
 using System.Data;
 using System.IO;
 using System.Linq;
-using System.Net.Http;
-using System.Reflection;
 using System.Windows.Forms;
 
 namespace SoumaDownloader
@@ -106,16 +104,6 @@ namespace SoumaDownloader
             {
                 MessageBox.Show("无效的用户目录！", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-        }
-
-        private void LinkLabel1_LinkClicked(object sender, LinkLabelLinkClickedEventArgs e)
-        {
-            System.Diagnostics.Process.Start("https://github.com/Souma-Sumire/raidboss-user-js-public/");
-        }
-
-        private void checkBox1_CheckedChanged(object sender, EventArgs e)
-        {
-
         }
     }
 }

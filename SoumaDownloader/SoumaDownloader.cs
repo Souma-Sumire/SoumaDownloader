@@ -17,71 +17,59 @@ namespace ACT_Plugin_Souma_Downloader
 {
     public class SoumaDownloader : IActPluginV1
     {
+        #region Fields
+
+        private string phpContent;
+        private bool showMessage = true;
+        private readonly string baseUrl = "https://souma.diemoe.net/raidboss/";
+        private readonly string phpUrl = "https://souma.diemoe.net/list_files2.php";
+        private readonly string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\SoumaDownloader.config.xml");
+        private readonly Dictionary<string, string[]> fileData = new Dictionary<string, string[]>();
+
         public string filePath;
         public string jsonContent;
         internal UIControl PluginUI;
-        Label lblStatus;    // 在ACT的插件选项卡中显示的状态标签
-        readonly string settingsFile = Path.Combine(ActGlobals.oFormActMain.AppDataFolder.FullName, "Config\\SoumaDownloader.config.xml");
-        SettingsSerializer xmlSettings;
-        string phpContent;
-        readonly Dictionary<string, string[]> fileData = new Dictionary<string, string[]>();
+        private Label lblStatus;
+        private SettingsSerializer xmlSettings;
 
-        readonly string baseUrl = $"https://souma.diemoe.net/raidboss/";
-        readonly string phpUrl = "https://souma.diemoe.net/list_files2.php";
+        #endregion
+
+        #region Plugin Entry
 
         public void InitPlugin(TabPage pluginScreenSpace, Label pluginStatusText)
         {
-            lblStatus = pluginStatusText;   // 将状态标签的引用传递给我们的本地变量。
-
-            PluginUI = new UIControl
-            {
-                ParentClass = this
-            };
-
-            pluginScreenSpace.Controls.Add(PluginUI); // 将此UserControl添加到ACT提供的选项卡中。
-            pluginScreenSpace.Text = "Souma下崽器";
-            PluginUI.Dock = DockStyle.Fill; // 将UserControl扩展到填充选项卡的客户端空间。
+            lblStatus = pluginStatusText;
             lblStatus.Text = "准备好下崽了(˃˂)";
 
-            xmlSettings = new SettingsSerializer(this); // 创建一个新的设置序列化器并将其传递给该实例。
+            PluginUI = new UIControl { ParentClass = this };
+            pluginScreenSpace.Controls.Add(PluginUI);
+            pluginScreenSpace.Text = "Souma下崽器";
+            PluginUI.Dock = DockStyle.Fill;
+
+            xmlSettings = new SettingsSerializer(this);
             LoadSettings();
-            if (PluginUI.textUserDir.Text == "") AutoConfigureCactbotPath();
+
+            if (string.IsNullOrEmpty(PluginUI.textUserDir.Text))
+                AutoConfigureCactbotPath();
+
             PluginUI.textUserDir.Text = Path.GetFullPath(PluginUI.textUserDir.Text);
             PluginUI.VersionInfo.Text = $"版本 {Assembly.GetExecutingAssembly().GetName().Version}";
 
-            PluginUI.btnDownload.Click += DownloadSelected;
+            PluginUI.btnDownload.Click += ManualUpdate;
             PluginUI.textUserDir.TextChanged += TxtUserDir_TextChanged;
-            PluginUI.checkedListBox1.MouseMove += CheckedListBox1_MouseMove;
+            PluginUI.retry.Click += Retry_Clicked;
 
-            var parentTabControl = FindParentTabControl(pluginScreenSpace);
-            if (parentTabControl != null)
-            {
-                void handler(object sender, TabControlEventArgs e)
-                {
-                    if (e.TabPage == pluginScreenSpace)
-                    {
-                        StartTask();
-                        if (fileData.Count != 0)
-                        {
-                            parentTabControl.Selected -= handler;
-                        }
-                    }
-                }
-                parentTabControl.Selected += handler;
-            }
-        }
 
-        private TabControl FindParentTabControl(Control control)
-        {
-            while (control != null)
+            _ = Check();
+            if (PluginUI.checkBoxAutoUpdate.Checked)
             {
-                if (control.Parent is TabControl tabControl)
+                _ = Task.Run(async () =>
                 {
-                    return tabControl;
-                }
-                control = control.Parent;
+                    showMessage = false;
+                    await ProcessAsync();
+                    showMessage = true;
+                });
             }
-            return null;
         }
 
         public void DeInitPlugin()
@@ -90,16 +78,140 @@ namespace ACT_Plugin_Souma_Downloader
             lblStatus.Text = "插件已退出";
         }
 
-        public async void StartTask()
+        #endregion
+
+        #region UI Events
+
+        private void TxtUserDir_TextChanged(object sender, EventArgs e) => UpdateCheckbox();
+
+        private void Retry_Clicked(object sender, EventArgs e)
         {
-            await UpdateList();
-            CheckUserDir();
+            _ = Check();
         }
 
-        private void TxtUserDir_TextChanged(object sender, EventArgs e)
+        private void ManualUpdate(object sender, EventArgs e)
         {
-            UpdateCheckedList();
+            PluginUI.btnDownload.Enabled = false;
+            DialogResult result = MessageBox.Show("未被勾选的js文件将会被删除，确认继续吗？", "确认", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+
+            if (result == DialogResult.Yes)
+                _ = ProcessAsync();
+            else
+                PluginUI.btnDownload.Enabled = true;
         }
+
+        #endregion
+
+        #region Core Process
+
+        private async Task ProcessAsync()
+        {
+            await Check();
+
+            string userDir = PluginUI.textUserDir.Text;
+            string backupPath = Path.Combine(Path.GetTempPath(), "cactbot_backup");
+
+            try
+            {
+                if (Directory.Exists(backupPath)) Directory.Delete(backupPath, true);
+                Directory.CreateDirectory(backupPath);
+                BackupFiles(userDir, backupPath);
+
+                var existingFiles = Directory.GetFiles(userDir, "*.js", SearchOption.AllDirectories)
+                                             .Select(f => Path.GetFileNameWithoutExtension(f));
+                var filesToKeep = PluginUI.checkedListBox1.Items.Cast<string>();
+                var filesToDelete = existingFiles.Except(filesToKeep);
+
+                foreach (var file in filesToDelete)
+                    File.Delete(Path.Combine(userDir, file + ".js"));
+
+                for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
+                {
+                    string key = PluginUI.checkedListBox1.Items[i].ToString();
+                    string[] info = fileData[key];
+                    string fileName = info[0];
+                    string filePath = Path.Combine(userDir, fileName);
+                    string fileUrl = $"{baseUrl}{fileName}";
+
+                    if (PluginUI.checkedListBox1.GetItemChecked(i))
+                        Download(fileUrl, filePath);
+                    else if (File.Exists(filePath))
+                        File.Delete(filePath);
+                }
+
+                Directory.Delete(backupPath, true);
+                PluginUI.textLastUpdateTime.Text = "最近一次更新于：" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                if (showMessage)
+                    MessageBox.Show("下载完成！记得刷新 Raidboss 悬浮窗以加载。");
+
+                SaveSettings();
+            }
+            catch (Exception ex)
+            {
+                RestoreFiles(backupPath, userDir);
+                if (showMessage)
+                    MessageBox.Show("下载过程中发生错误：" + ex);
+            }
+            finally
+            {
+                PluginUI.btnDownload.Enabled = true;
+            }
+        }
+
+        private async Task Check()
+        {
+            if (fileData.Count == 0)
+            {
+                try
+                {
+                    using (Stream stream = GetStream(phpUrl))
+                    using (StreamReader reader = new StreamReader(stream))
+                        phpContent = await reader.ReadToEndAsync();
+
+                    UpdateFileData();
+                    UpdateCheckbox();
+                    PluginUI.btnDownload.Enabled = true;
+                    PluginUI.retry.Hide();
+                    PluginUI.checkedListBox1.Show();
+                    PluginUI.btnSelectAll.Show();
+                    PluginUI.btnDeselectAll.Show();
+                    PluginUI.btnDownload.Show();
+                    PluginUI.checkBoxAutoUpdate.Show();
+                    PluginUI.textLastUpdateTime.Show();
+                }
+                catch (Exception ex)
+                {
+                    if (showMessage)
+                        MessageBox.Show("获取上游列表时发生错误。" + ex);
+                }
+            }
+
+            if (fileData.Count == 0 && showMessage)
+            {
+                MessageBox.Show("列表为空。请稍后重试。");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(PluginUI.textUserDir.Text))
+                AutoConfigureCactbotPath();
+
+            if (!Directory.Exists(PluginUI.textUserDir.Text))
+            {
+                try
+                {
+                    Directory.CreateDirectory(PluginUI.textUserDir.Text);
+                }
+                catch (Exception ex)
+                {
+                    if (showMessage)
+                        MessageBox.Show("创建目录失败。" + ex);
+                }
+            }
+        }
+
+        #endregion
+
+        #region Helper Methods
 
         public void AutoConfigureCactbotPath()
         {
@@ -111,345 +223,157 @@ namespace ACT_Plugin_Souma_Downloader
                 return;
             }
 
-            string jsonContent = null;
             try
             {
-                jsonContent = File.ReadAllText(settingsPath);
+                string json = File.ReadAllText(settingsPath);
+                string path = JObject.Parse(json)
+                    .SelectToken("EventSourceConfigs.CactbotESConfig.OverlayData.options.general.CactbotUserDirectory")?.Value<string>();
+
+                if (!string.IsNullOrEmpty(path))
+                    PluginUI.textUserDir.Text = Path.Combine(path, "raidboss", "Souma");
+                else
+                {
+                    var cactbot = ActGlobals.oFormActMain.ActPlugins.FirstOrDefault(x => x.pluginObj?.GetType().ToString() == "RainbowMage.OverlayPlugin.PluginLoader");
+                    string cactbotDir = Path.GetDirectoryName(cactbot.pluginFile.FullName);
+                    string pluginsDir = Directory.GetParent(cactbotDir).FullName;
+
+                    string found = new[] { "cactbot-offline", "cactbot" }
+                        .Select(dir => Path.Combine(pluginsDir, dir, "user"))
+                        .FirstOrDefault(Directory.Exists);
+
+                    PluginUI.textUserDir.Text = found != null
+                        ? Path.Combine(found, "raidboss", "Souma")
+                        : "自动设置失败，未找到user目录。";
+                }
             }
             catch (Exception ex)
             {
                 PluginUI.textUserDir.Text = "自动设置失败，无法读取OverlayPlugin.config.json：" + ex.Message;
-                return;
-            }
-
-            string propertyValue = JObject.Parse(jsonContent)
-                .SelectToken("EventSourceConfigs.CactbotESConfig.OverlayData.options.general.CactbotUserDirectory")?.Value<string>();
-
-            if (!string.IsNullOrEmpty(propertyValue))
-                PluginUI.textUserDir.Text = Path.Combine(propertyValue, "raidboss", "Souma");
-            else
-            {
-                var cactbot = ActGlobals.oFormActMain.ActPlugins.FirstOrDefault(x => x.pluginObj?.GetType().ToString() == "RainbowMage.OverlayPlugin.PluginLoader");
-                string cactbotDirectory = Path.GetDirectoryName(cactbot.pluginFile.FullName);
-                string pluginsDirectory = Directory.GetParent(cactbotDirectory).FullName;
-
-                string[] searchPaths = { "cactbot-offline", "cactbot" };
-                string foundPath = searchPaths
-                    .Select(searchPath => Path.Combine(pluginsDirectory, searchPath, "user"))
-                    .FirstOrDefault(fullPath => Directory.Exists(fullPath));
-
-                if (foundPath == null)
-                {
-                    PluginUI.textUserDir.Text = "自动设置失败，未找到user目录。";
-                    return;
-                }
-                PluginUI.textUserDir.Text = Path.Combine(foundPath, "raidboss", "Souma");
             }
         }
 
-        private void CheckUserDir()
+        public Stream GetStream(string url, int timeout = 15000)
         {
-            if (string.IsNullOrEmpty(PluginUI.textUserDir.Text)) AutoConfigureCactbotPath();
-            if (Directory.Exists(PluginUI.textUserDir.Text)) return;
-            try
-            {
-                // 创建目录
-                Directory.CreateDirectory(PluginUI.textUserDir.Text);
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Failed to create cactbotUserDirectory: " + ex.Message);
-                return;
-            }
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
+            var request = (HttpWebRequest)WebRequest.Create(url);
+            request.Method = "GET";
+            request.ContentType = "text/html,application/xhtml+xml,application/xml;charset=UTF-8";
+            request.UserAgent = null;
+            request.Timeout = timeout;
+            request.AutomaticDecompression = DecompressionMethods.GZip;
+            request.KeepAlive = true;
+
+            var response = (HttpWebResponse)request.GetResponse();
+
+            if (new[] { HttpStatusCode.NotFound, HttpStatusCode.ServiceUnavailable, HttpStatusCode.Unauthorized,
+                        HttpStatusCode.GatewayTimeout, HttpStatusCode.BadGateway, HttpStatusCode.BadRequest, HttpStatusCode.Forbidden }
+                .Contains(response.StatusCode))
+                return null;
+
+            return response.GetResponseStream();
         }
 
-        private void Process()
+        public void Download(string url, string path)
         {
-            string userDir = PluginUI.textUserDir.Text;
-            // 备份原文件的目录
-            string backupPath = Path.Combine(Path.GetTempPath(), "cactbot_backup");
-
-            try
+            using (Stream stream = GetStream(url, 15000))
             {
-                // 删除之前的备份目录
-                if (Directory.Exists(backupPath)) Directory.Delete(backupPath, true);
-
-                // 创建备份目录
-                Directory.CreateDirectory(backupPath);
-
-                // 备份原文件
-                BackupFiles(userDir, backupPath);
-
-                string[] files = Directory.GetFiles(userDir, "*.js", SearchOption.AllDirectories);
-
-                var filesWithoutExtension = files.Select(file => Path.GetFileNameWithoutExtension(file));
-                var itemsToBeDeleted = filesWithoutExtension.Except(PluginUI.checkedListBox1.Items.Cast<string>());
-
-                // 删除未勾选
-                foreach (var file in itemsToBeDeleted) File.Delete(Path.Combine(userDir, file + ".js"));
-
-                for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
+                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                using (FileStream file = File.Create(path))
                 {
-                    string key = PluginUI.checkedListBox1.Items[i].ToString();
-                    string fileFullName = fileData.FirstOrDefault(x => x.Key == key).Value[0];
-                    bool isChecked = PluginUI.checkedListBox1.GetItemChecked(i);
-                    string fileUrl = $"{baseUrl}{fileFullName}";
-                    string filePath = Path.Combine(userDir, fileFullName);
-                    if (isChecked)
-                    {
-                        Download(fileUrl, filePath);
-                    }
-                    else
-                    {
-                        // 如果项目未被勾选，且文件存在，则删除文件
-                        if (File.Exists(filePath))
-                            File.Delete(filePath);
-                    }
+                    stream.CopyTo(file);
                 }
-
-                // 下载完成后，删除备份目录
-                Directory.Delete(backupPath, true);
-
-                // 保存成功更新时间
-                MessageBox.Show("下载完成！记得刷新 Raidboss 悬浮窗以加载。");
-
-                SaveSettings();
-            }
-            catch (Exception ex)
-            {
-                // 发生异常，恢复备份文件
-                RestoreFiles(backupPath, userDir);
-                MessageBox.Show("下载过程中发生错误：" + ex);
-            }
-            finally
-            {
-                // 启用下载按钮
-                PluginUI.btnDownload.Enabled = true;
-            }
-        }
-
-        private async void DownloadSelected(object sender, EventArgs e)
-        {
-            PluginUI.btnDownload.Enabled = false;
-            CheckUserDir();
-            if (fileData.Count == 0)
-            {
-                bool fetchSuccessful = await UpdateList();
-                if (!fetchSuccessful)
-                {
-                    MessageBox.Show("无法获取列表。请稍后重试。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    return;
-                }
-            }
-            if (fileData.Count == 0)
-            {
-                MessageBox.Show("列表为空。请稍后重试。", "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return;
-            }
-            DialogResult result = MessageBox.Show("未被勾选的js文件将会被删除，确认继续吗？", "确认", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
-            // 用户点击了“是”
-            if (result == DialogResult.Yes)
-            {
-                Process();
-            }
-            else
-            {
-                PluginUI.btnDownload.Enabled = true;
             }
         }
 
         private void BackupFiles(string sourcePath, string backupPath)
         {
-            DirectoryInfo directory = new DirectoryInfo(sourcePath);
-            foreach (FileInfo file in directory.GetFiles())
-            {
-                string destinationFile = Path.Combine(backupPath, file.Name);
-                file.CopyTo(destinationFile);
-            }
+            foreach (var file in new DirectoryInfo(sourcePath).GetFiles())
+                file.CopyTo(Path.Combine(backupPath, file.Name));
         }
 
-        private void RestoreFiles(string backupPath, string destinationPath)
+        private void RestoreFiles(string backupPath, string destPath)
         {
-            DirectoryInfo directory = new DirectoryInfo(backupPath);
-            foreach (FileInfo file in directory.GetFiles())
-            {
-                string destinationFile = Path.Combine(destinationPath, file.Name);
-                file.CopyTo(destinationFile, true);
-            }
-        }
-
-        private async Task<bool> UpdateList()
-        {
-            try
-            {
-                using (Stream stream = GetStream(phpUrl))
-                using (StreamReader reader = new StreamReader(stream))
-                {
-                    phpContent = await reader.ReadToEndAsync();
-                }
-                UpdateFileData();
-                UpdateCheckedList();
-                PluginUI.btnDownload.Enabled = true;
-                return true; // Fetch was successful
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("发生错误： " + ex, "错误", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                return false; // Fetch failed
-            }
-        }
-
-        public Stream GetStream(string url, int Timeout = 15000)
-        {
-            // 设置安全协议
-            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(url);
-            request.Method = "GET";
-
-            // 设置请求的内容类型，表明接受HTML、XHTML和XML格式的数据
-            request.ContentType = "text/html,application/xhtml+xml,application/xml;charset=UTF-8";
-
-            // 设置用户代理（User-Agent）
-            request.UserAgent = null;
-
-            // 设置请求超时时间
-            request.Timeout = Timeout;
-            request.AutomaticDecompression = DecompressionMethods.GZip;
-            request.KeepAlive = true;
-
-            // 发送请求并获取服务器的响应
-            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
-
-            if (response.StatusCode == HttpStatusCode.NotFound || // 404 - 资源未找到
-                response.StatusCode == HttpStatusCode.ServiceUnavailable || // 503 - 服务器不可用
-                response.StatusCode == HttpStatusCode.Unauthorized || // 401 - 未授权
-                response.StatusCode == HttpStatusCode.GatewayTimeout || // 504 - 网关超时
-                response.StatusCode == HttpStatusCode.BadGateway || // 502 - 错误网关
-                response.StatusCode == HttpStatusCode.BadRequest || // 400 - 错误请求
-                response.StatusCode == HttpStatusCode.Forbidden) // 403 - 禁止访问
-            {
-                return null;
-            }
-
-            return response.GetResponseStream();
-        }
-
-
-        public void Download(string url, string path)
-        {
-            Stream temp = GetStream(url, 15000);
-            if (!Directory.Exists(Path.GetDirectoryName(path)))
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-            }
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-            FileStream tempFile = File.Create(path);
-            temp.CopyTo(tempFile);
-            tempFile.Dispose();
-            temp.Dispose();
+            foreach (var file in new DirectoryInfo(backupPath).GetFiles())
+                file.CopyTo(Path.Combine(destPath, file.Name), true);
         }
 
         private void UpdateFileData()
         {
-            string pattern = @"<a href=""([^""]*)"">([^<]*)<\/a><span>([^<]*)<\/span>";
-            MatchCollection matches = Regex.Matches(phpContent, pattern);
             fileData.Clear();
-
-            // 提取解析结果并保存到字典中
-            foreach (Match match in matches)
+            foreach (Match match in Regex.Matches(phpContent, @"<a href=""([^""]*)"">([^<]*)<\/a><span>([^<]*)<\/span>"))
             {
-                string fileName = match.Groups[2].Value;
-                string fileFullName = match.Groups[1].Value.Replace(baseUrl, "");
-                string fileModified = match.Groups[3].Value;
-                string[] fileInfo = { fileFullName, fileModified };
-                fileData.Add(fileName, fileInfo);
+                string name = match.Groups[2].Value;
+                string full = match.Groups[1].Value.Replace(baseUrl, "");
+                fileData[name] = new[] { full, match.Groups[3].Value };
             }
         }
 
-        private void UpdateCheckedList()
+        private void UpdateCheckbox()
         {
             PluginUI.checkedListBox1.Items.Clear();
-            foreach (KeyValuePair<string, string[]> pair in fileData)
+            foreach (var pair in fileData)
             {
-                string fileName = pair.Key;
-                string fileFullName = pair.Value[0];
-                PluginUI.checkedListBox1.Items.Add(fileName, fileName.Contains("必装") || File.Exists(Path.Combine(PluginUI.textUserDir.Text, fileFullName)));
+                bool isChecked = pair.Key.Contains("必装") ||
+                    File.Exists(Path.Combine(PluginUI.textUserDir.Text, pair.Value[0]));
+                PluginUI.checkedListBox1.Items.Add(pair.Key, isChecked);
             }
         }
 
+        #endregion
 
-        private void CheckedListBox1_MouseMove(object sender, MouseEventArgs e)
-        {
-            var index = PluginUI.checkedListBox1.IndexFromPoint(e.Location);
-            if (index != ListBox.NoMatches)
-            {
-                var key = PluginUI.checkedListBox1.Items[index].ToString();
-                string tipText = fileData[key][1];
-                if (PluginUI.toolTip1.GetToolTip(PluginUI.checkedListBox1) != key)
-                {
-                    PluginUI.toolTip1.SetToolTip(PluginUI.checkedListBox1, $"上游更新时间：{tipText}");
-                }
-            }
-            else
-            {
-                PluginUI.toolTip1.SetToolTip(PluginUI.checkedListBox1, "");
-            }
-        }
+        #region Settings
 
-        #region Save&Load
-
-        void LoadSettings()
+        private void LoadSettings()
         {
             xmlSettings.AddControlSetting("userDir", PluginUI.textUserDir);
-            if (File.Exists(settingsFile))
-            {
-                FileStream fs = new FileStream(settingsFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
-                XmlTextReader xReader = new XmlTextReader(fs);
+            xmlSettings.AddControlSetting("autoUpdate", PluginUI.checkBoxAutoUpdate);
 
-                try
+            if (!File.Exists(settingsFile)) return;
+
+            FileStream fs = new FileStream(settingsFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            XmlTextReader reader = new XmlTextReader(fs);
+            try
+            {
+                while (reader.Read())
                 {
-                    while (xReader.Read())
-                    {
-                        if (xReader.NodeType == XmlNodeType.Element)
-                        {
-                            if (xReader.LocalName == "SettingsSerializer")
-                            {
-                                xmlSettings.ImportFromXml(xReader);
-                            }
-                        }
-                    }
+                    if (reader.NodeType == XmlNodeType.Element && reader.LocalName == "SettingsSerializer")
+                        xmlSettings.ImportFromXml(reader);
                 }
-                catch (Exception ex)
-                {
-                    lblStatus.Text = "Error loading settings: " + ex.Message;
-                }
-                xReader.Close();
+            }
+            catch (Exception ex)
+            {
+                lblStatus.Text = "Error loading settings: " + ex.Message;
+            }
+            finally
+            {
+                reader.Close();
+                fs.Close();
             }
         }
-        void SaveSettings()
+
+        private void SaveSettings()
         {
             FileStream fs = new FileStream(settingsFile, FileMode.Create, FileAccess.Write, FileShare.ReadWrite);
-            XmlTextWriter xWriter = new XmlTextWriter(fs, Encoding.UTF8)
+            XmlTextWriter writer = new XmlTextWriter(fs, Encoding.UTF8)
             {
-                Formatting = System.Xml.Formatting.Indented,
+                Formatting = Formatting.Indented,
                 Indentation = 1,
                 IndentChar = '\t'
             };
-            xWriter.WriteStartDocument(true);
-            xWriter.WriteStartElement("Config");    // <Config>
-            xWriter.WriteStartElement("SettingsSerializer");    // <Config><SettingsSerializer>
-            xmlSettings.ExportToXml(xWriter);   // Fill the SettingsSerializer XML
-            xWriter.WriteEndElement();  // </SettingsSerializer>
-            xWriter.WriteEndElement();  // </Config>
-            xWriter.WriteEndDocument(); // 处理一些杂项工作（如果有的话）。
-            xWriter.Flush();    // 将文件缓冲区刷新到磁盘上。
-            xWriter.Close();
+
+            writer.WriteStartDocument(true);
+            writer.WriteStartElement("Config");
+            writer.WriteStartElement("SettingsSerializer");
+            xmlSettings.ExportToXml(writer);
+            writer.WriteEndElement();
+            writer.WriteEndElement();
+            writer.WriteEndDocument();
+
+            writer.Close();
+            fs.Close();
         }
 
         #endregion
     }
 }
-

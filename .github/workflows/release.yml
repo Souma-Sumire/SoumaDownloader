@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v3
+
+      - name: Restore NuGet packages
+        run: nuget restore Souma.sln
+
+      - name: Build Solution
+        run: msbuild Souma.sln /p:Configuration=Release
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v3
+        with:
+          files: SoumaDownloader/bin/Release/SoumaDownloader.dll
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

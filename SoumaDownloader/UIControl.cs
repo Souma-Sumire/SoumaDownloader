@@ -12,6 +12,14 @@ namespace SoumaDownloader
         public UIControl()
         {
             InitializeComponent();
+            if (comboPluginProxy.SelectedIndex < 0)
+                comboPluginProxy.SelectedIndex = 0;
+        }
+
+        private async void BtnCheckPluginUpdate_Click(object sender, EventArgs e)
+        {
+            string proxy = comboPluginProxy.SelectedItem?.ToString() ?? "GitHub直连";
+            await ACT_Plugin_Souma_Downloader.PluginUpdater.CheckAndUpdateAsync(proxy, true, btnCheckPluginUpdate, VersionInfo);
         }
 
         private void BtnBrowse_Click(object sender, EventArgs e)

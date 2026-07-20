@@ -51,6 +51,8 @@ namespace ACT_Plugin_Souma_Downloader
             pluginScreenSpace.Text = "Souma下崽器";
             PluginUI.Dock = DockStyle.Fill;
 
+            PluginUpdater.CleanOldBackupFiles();
+
             xmlSettings = new SettingsSerializer(this);
             LoadSettings();
 
@@ -145,7 +147,7 @@ namespace ACT_Plugin_Souma_Downloader
                 }
 
                 Directory.Delete(backupPath, true);
-                PluginUI.textLastUpdateTime.Text = "最近一次更新于：" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                PluginUI.textLastUpdateTime.Text = "最近更新：" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
                 // 刷新状态列，反映下载后的实际安装情况
                 foreach (ListViewItem lvItem in PluginUI.listViewFiles.Items)
@@ -443,6 +445,7 @@ namespace ACT_Plugin_Souma_Downloader
         {
             xmlSettings.AddControlSetting("userDir", PluginUI.textUserDir);
             xmlSettings.AddControlSetting("autoUpdate", PluginUI.checkBoxAutoUpdate);
+            xmlSettings.AddControlSetting("pluginProxy", PluginUI.comboPluginProxy);
 
             if (!File.Exists(settingsFile)) return;
 

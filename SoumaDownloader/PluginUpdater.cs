@@ -91,7 +91,11 @@ namespace ACT_Plugin_Souma_Downloader
 
                 if (latestVersion <= currentVersion)
                 {
-                    if (statusLbl != null) statusLbl.Text = $"已是最新 v{currentVersion}";
+                    if (statusLbl != null) statusLbl.Text = $"v{currentVersion}";
+                    if (isManualCheck)
+                    {
+                        MessageBox.Show($"当前已是最新版本 (v{currentVersion})", "检查更新", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    }
                     return;
                 }
 
@@ -139,9 +143,10 @@ namespace ACT_Plugin_Souma_Downloader
 
                 await PerformDownloadAndReplaceAsync(downloadUrl, checkBtn, statusLbl);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
-                if (statusLbl != null) statusLbl.Text = "更新失败";
+                if (statusLbl != null) statusLbl.Text = "检查失败: " + ex.Message;
+                if (checkBtn != null) checkBtn.Text = "重试";
             }
             finally
             {

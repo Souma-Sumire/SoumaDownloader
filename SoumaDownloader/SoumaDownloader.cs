@@ -1,4 +1,4 @@
-﻿using Advanced_Combat_Tracker;
+using Advanced_Combat_Tracker;
 using Newtonsoft.Json.Linq;
 using SoumaDownloader;
 using System;
@@ -141,8 +141,11 @@ namespace ACT_Plugin_Souma_Downloader
 
                 Directory.Delete(backupPath, true);
                 PluginUI.textLastUpdateTime.Text = "最近一次更新于：" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+                ReloadCactbotOverlays();
+
                 if (showMessage)
-                    MessageBox.Show("下载完成！记得刷新 Raidboss 悬浮窗以加载。");
+                    MessageBox.Show("下载完成！");
 
                 SaveSettings();
             }
@@ -318,6 +321,65 @@ namespace ACT_Plugin_Souma_Downloader
                     File.Exists(Path.Combine(PluginUI.textUserDir.Text, pair.Value[0]));
                 PluginUI.checkedListBox1.Items.Add(pair.Key, isChecked);
             }
+        }
+
+        private IEnumerable<Type> GetLoadableTypes(Assembly asm)
+        {
+            try
+            {
+                return asm.GetTypes();
+            }
+            catch (ReflectionTypeLoadException e)
+            {
+                return e.Types.Where(t => t != null);
+            }
+            catch
+            {
+                return Enumerable.Empty<Type>();
+            }
+        }
+
+        private void ReloadCactbotOverlays()
+        {
+            try
+            {
+                var allAsms = AppDomain.CurrentDomain.GetAssemblies();
+
+                Type registryType = allAsms.Select(a => a.GetType("RainbowMage.OverlayPlugin.Registry")).FirstOrDefault(t => t != null)
+                    ?? allAsms.SelectMany(GetLoadableTypes).FirstOrDefault(x =>
+                        x.Name == "Registry" &&
+                        x.Namespace != null && x.Namespace.Contains("OverlayPlugin") &&
+                        x.GetMethod("GetContainer", BindingFlags.Public | BindingFlags.Static) != null)
+                    ?? allAsms.SelectMany(GetLoadableTypes).FirstOrDefault(x =>
+                        x.Name == "Registry" &&
+                        x.GetMethod("GetContainer", BindingFlags.Public | BindingFlags.Static) != null);
+
+                if (registryType == null) return;
+
+                var container = registryType.GetMethod("GetContainer", BindingFlags.Public | BindingFlags.Static)?.Invoke(null, null);
+                if (container == null) return;
+
+                var resolveMethod = container.GetType().GetMethods()
+                    .FirstOrDefault(m => m.Name == "Resolve" && m.IsGenericMethod && m.GetParameters().Length == 0);
+                object Resolve(Type t) => resolveMethod?.MakeGenericMethod(t).Invoke(container, null);
+
+                Type apiType = GetLoadableTypes(registryType.Assembly).FirstOrDefault(x => !x.IsInterface && (x.Name == "OverlayPluginApi" || x.GetMethod("DispatchEvent") != null))
+                    ?? allAsms.SelectMany(GetLoadableTypes).FirstOrDefault(x =>
+                        !x.IsInterface && (x.Name == "OverlayPluginApi" ||
+                        (x.Namespace != null && x.Namespace.Contains("OverlayPlugin") && x.GetMethod("DispatchEvent") != null)));
+
+                if (apiType != null)
+                {
+                    try
+                    {
+                        var api = Resolve(apiType);
+                        apiType.GetMethod("CallHandler", new[] { typeof(JObject) })?.Invoke(api, new object[] { new JObject { ["call"] = "cactbotReloadOverlays" } });
+                        apiType.GetMethod("DispatchEvent", new[] { typeof(JObject) })?.Invoke(api, new object[] { new JObject { ["type"] = "onForceReload" } });
+                    }
+                    catch (Exception ex) { System.Diagnostics.Debug.WriteLine("OverlayPlugin API dispatch: " + ex); }
+                }
+            }
+            catch (Exception ex) { System.Diagnostics.Debug.WriteLine("ReloadCactbotOverlays: " + ex); }
         }
 
         #endregion

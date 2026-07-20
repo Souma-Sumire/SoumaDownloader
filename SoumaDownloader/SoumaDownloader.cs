@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -31,6 +32,10 @@ namespace ACT_Plugin_Souma_Downloader
         internal UIControl PluginUI;
         private Label lblStatus;
         private SettingsSerializer xmlSettings;
+
+        // Windows 资源管理器使用的自然排序函数
+        [DllImport("shlwapi.dll", CharSet = CharSet.Unicode)]
+        private static extern int StrCmpLogicalW(string x, string y);
 
         #endregion
 
@@ -119,21 +124,21 @@ namespace ACT_Plugin_Souma_Downloader
 
                 var existingFiles = Directory.GetFiles(userDir, "*.js", SearchOption.AllDirectories)
                                              .Select(f => Path.GetFileNameWithoutExtension(f));
-                var filesToKeep = PluginUI.checkedListBox1.Items.Cast<string>();
+                var filesToKeep = PluginUI.listViewFiles.Items.Cast<ListViewItem>().Select(i => i.Text);
                 var filesToDelete = existingFiles.Except(filesToKeep);
 
                 foreach (var file in filesToDelete)
                     File.Delete(Path.Combine(userDir, file + ".js"));
 
-                for (int i = 0; i < PluginUI.checkedListBox1.Items.Count; i++)
+                foreach (ListViewItem lvItem in PluginUI.listViewFiles.Items)
                 {
-                    string key = PluginUI.checkedListBox1.Items[i].ToString();
+                    string key = lvItem.Text;
                     string[] info = fileData[key];
                     string fileName = info[0];
                     string filePath = Path.Combine(userDir, fileName);
                     string fileUrl = $"{baseUrl}{fileName}";
 
-                    if (PluginUI.checkedListBox1.GetItemChecked(i))
+                    if (lvItem.Checked)
                         Download(fileUrl, filePath);
                     else if (File.Exists(filePath))
                         File.Delete(filePath);
@@ -141,6 +146,14 @@ namespace ACT_Plugin_Souma_Downloader
 
                 Directory.Delete(backupPath, true);
                 PluginUI.textLastUpdateTime.Text = "最近一次更新于：" + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+                // 刷新状态列，反映下载后的实际安装情况
+                foreach (ListViewItem lvItem in PluginUI.listViewFiles.Items)
+                {
+                    var (text, color) = GetFileStatus(lvItem.Text, userDir);
+                    lvItem.SubItems[1].Text = text;
+                    lvItem.ForeColor = color;
+                }
 
                 ReloadCactbotOverlays();
 
@@ -175,9 +188,11 @@ namespace ACT_Plugin_Souma_Downloader
                     UpdateCheckbox();
                     PluginUI.btnDownload.Enabled = true;
                     PluginUI.retry.Hide();
-                    PluginUI.checkedListBox1.Show();
+                    PluginUI.listViewFiles.Show();
+                    PluginUI.label2.Show();
                     PluginUI.btnSelectAll.Show();
                     PluginUI.btnDeselectAll.Show();
+                    PluginUI.btnInvert.Show();
                     PluginUI.btnDownload.Show();
                     PluginUI.checkBoxAutoUpdate.Show();
                     PluginUI.textLastUpdateTime.Show();
@@ -304,23 +319,61 @@ namespace ACT_Plugin_Souma_Downloader
         private void UpdateFileData()
         {
             fileData.Clear();
-            foreach (Match match in Regex.Matches(phpContent, @"<a href=""([^""]*)"">([^<]*)<\/a><span>([^<]*)<\/span>"))
+            // 第四组为可选的说明（需平台PHP输出第二个<span>）
+            foreach (Match match in Regex.Matches(phpContent,
+                @"<a href=""([^""]*)"">([^<]*)<\/a><span>([^<]*)<\/span>(?:<span>([^<]*)<\/span>)?"))
             {
                 string name = match.Groups[2].Value;
                 string full = match.Groups[1].Value.Replace(baseUrl, "");
-                fileData[name] = new[] { full, match.Groups[3].Value };
+                fileData[name] = new[] { full, match.Groups[3].Value, match.Groups[4].Value };
             }
         }
 
         private void UpdateCheckbox()
         {
-            PluginUI.checkedListBox1.Items.Clear();
-            foreach (var pair in fileData)
+            PluginUI.listViewFiles.BeginUpdate();
+            PluginUI.listViewFiles.Items.Clear();
+            foreach (var pair in fileData.OrderBy(p => p.Key, Comparer<string>.Create(StrCmpLogicalW)))
             {
-                bool isChecked = pair.Key.Contains("必装") ||
-                    File.Exists(Path.Combine(PluginUI.textUserDir.Text, pair.Value[0]));
-                PluginUI.checkedListBox1.Items.Add(pair.Key, isChecked);
+                bool installed = File.Exists(Path.Combine(PluginUI.textUserDir.Text, pair.Value[0]));
+                bool isChecked = pair.Key.Contains("必装") || installed;
+                var (statusText, statusColor) = GetFileStatus(pair.Key, PluginUI.textUserDir.Text);
+                var item = new ListViewItem(pair.Key) { Checked = isChecked };
+                item.ForeColor = statusColor;
+                item.SubItems.Add(statusText);                     // 状态列
+                item.SubItems.Add(ToRelativeTime(pair.Value[1])); // 最后更新列
+                item.SubItems.Add(pair.Value[2]);                  // 说明列（可选）
+                PluginUI.listViewFiles.Items.Add(item);
             }
+            PluginUI.listViewFiles.EndUpdate();
+        }
+
+        // 返回（状态文字, 行颜色）：未安装 / 已安装 / 有更新
+        private (string text, System.Drawing.Color color) GetFileStatus(string key, string userDir)
+        {
+            string filePath = Path.Combine(userDir, fileData[key][0]);
+            if (!File.Exists(filePath))
+                return ("未安装", System.Drawing.SystemColors.GrayText);
+
+            if (DateTime.TryParse(fileData[key][1], out DateTime remoteTime))
+            {
+                if (File.GetLastWriteTime(filePath) < remoteTime)
+                    return ("有更新", System.Drawing.Color.DarkOrange);
+            }
+            return ("已安装", System.Drawing.SystemColors.WindowText);
+        }
+
+        private static string ToRelativeTime(string dateStr)
+        {
+            if (!DateTime.TryParse(dateStr, out DateTime dt))
+                return dateStr;
+            var span = DateTime.Now - dt;
+            if (span.TotalMinutes < 1)   return "刚刚";
+            if (span.TotalHours  < 1)    return $"{(int)span.TotalMinutes}分钟前";
+            if (span.TotalDays   < 1)    return $"{(int)span.TotalHours}小时前";
+            if (span.TotalDays   < 30)   return $"{(int)span.TotalDays}天前";
+            if (span.TotalDays   < 365)  return $"{(int)(span.TotalDays / 30)}个月前";
+            return $"{(int)(span.TotalDays / 365)}年前";
         }
 
         private IEnumerable<Type> GetLoadableTypes(Assembly asm)
